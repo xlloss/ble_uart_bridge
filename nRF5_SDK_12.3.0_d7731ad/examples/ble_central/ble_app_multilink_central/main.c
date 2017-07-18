@@ -226,8 +226,8 @@ static void scan_start(void)
     ret = sd_ble_gap_scan_start(&m_scan_params);
     APP_ERROR_CHECK(ret);
 
-    ret = bsp_indication_set(BSP_INDICATE_SCANNING);
-    APP_ERROR_CHECK(ret);
+//    ret = bsp_indication_set(BSP_INDICATE_SCANNING);
+//    APP_ERROR_CHECK(ret);
 }
 
 
@@ -292,8 +292,8 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
     switch (p_ble_nus_evt->evt_type)
     {
         case BLE_NUS_C_EVT_DISCOVERY_COMPLETE:
-            err_code = ble_nus_c_handles_assign(p_ble_nus_c, p_ble_nus_evt->conn_handle, &p_ble_nus_evt->handles);
-            APP_ERROR_CHECK(err_code);
+//            err_code = ble_nus_c_handles_assign(p_ble_nus_c, p_ble_nus_evt->conn_handle, &p_ble_nus_evt->handles);
+//            APP_ERROR_CHECK(err_code);
 
             err_code = ble_nus_c_rx_notif_enable(p_ble_nus_c);
             APP_ERROR_CHECK(err_code);
@@ -359,7 +359,8 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
     {
         found_name = true;
     }
-    if (found_name)
+    
+	if (found_name)
     {
         if (strlen(m_target_periph_name) != 0)
         {
@@ -378,7 +379,7 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
         {
             NRF_LOG_ERROR("Connection Request Failed, reason %d\r\n", err_code);
         } else {
-                    printf("Connecting to target %02x%02x%02x%02x%02x%02x\r\n",
+                    NRF_LOG_INFO("Connecting to target %02x%02x%02x%02x%02x%02x\r\n",
                              p_adv_report->peer_addr.addr[0],
                              p_adv_report->peer_addr.addr[1],
                              p_adv_report->peer_addr.addr[2],
@@ -424,6 +425,13 @@ static void on_ble_evt(const ble_evt_t * const p_ble_evt)
 //                                                p_gap_evt->conn_handle,
 //                                                NULL);
 //            APP_ERROR_CHECK(err_code);
+			
+			NRF_LOG_INFO("--->1\n");
+			err_code = ble_nus_c_handles_assign(&m_ble_nus_c[p_gap_evt->conn_handle],
+										p_gap_evt->conn_handle,
+										NULL);
+            APP_ERROR_CHECK(err_code);
+			NRF_LOG_INFO("--->2\n");
 
             err_code = ble_db_discovery_start(&m_ble_db_discovery[p_gap_evt->conn_handle],
                                               p_gap_evt->conn_handle);
@@ -434,7 +442,7 @@ static void on_ble_evt(const ble_evt_t * const p_ble_evt)
 
             err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
             APP_ERROR_CHECK(err_code);
-
+			scan_start();
             // Update LEDs status, and check if we should be looking for more
             // peripherals to connect to.
 //            bsp_board_led_on(CENTRAL_CONNECTED_LED);
@@ -460,7 +468,7 @@ static void on_ble_evt(const ble_evt_t * const p_ble_evt)
                          p_gap_evt->conn_handle,
                          p_gap_evt->params.disconnected.reason);
 
-            err_code = app_button_disable();
+            //err_code = app_button_disable();
             APP_ERROR_CHECK(err_code);
 
             // Start scanning
@@ -476,6 +484,7 @@ static void on_ble_evt(const ble_evt_t * const p_ble_evt)
         } break;
 
         case BLE_GAP_EVT_ADV_REPORT:
+			NRF_LOG_INFO (">>>>> BLE_GAP_EVT_ADV_REPORT\n");
             on_adv_report(p_ble_evt);
             break;
 
@@ -709,7 +718,8 @@ static void ble_stack_init(void)
  */
 static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
 {
-    NRF_LOG_INFO("call to ble_lbs_on_db_disc_evt for instance %d and link 0x%x!\r\n",
+    //NRF_LOG_INFO("call to ble_lbs_on_db_disc_evt for instance %d and link 0x%x!\r\n",
+	NRF_LOG_INFO("call to  instance %d and link 0x%x!\r\n",
                     p_evt->conn_handle,
                     p_evt->conn_handle);
     
@@ -744,7 +754,7 @@ int main(void)
 
     err_code = NRF_LOG_INIT(NULL);
     APP_ERROR_CHECK(err_code);
-    NRF_LOG_INFO("Multilink Example\r\n");
+    NRF_LOG_INFO("Multilink BLE UART Example v.01\r\n");
 //    leds_init();
     APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, NULL);
 //    buttons_init();
