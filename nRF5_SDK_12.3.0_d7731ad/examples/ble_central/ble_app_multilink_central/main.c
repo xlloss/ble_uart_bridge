@@ -289,11 +289,12 @@ static void scan_start(void)
 static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt_t * p_ble_nus_evt)
 {
     uint32_t err_code;
+
     switch (p_ble_nus_evt->evt_type)
     {
         case BLE_NUS_C_EVT_DISCOVERY_COMPLETE:
-//            err_code = ble_nus_c_handles_assign(p_ble_nus_c, p_ble_nus_evt->conn_handle, &p_ble_nus_evt->handles);
-//            APP_ERROR_CHECK(err_code);
+            err_code = ble_nus_c_handles_assign(p_ble_nus_c, p_ble_nus_evt->conn_handle, &p_ble_nus_evt->handles);
+            APP_ERROR_CHECK(err_code);
 
             err_code = ble_nus_c_rx_notif_enable(p_ble_nus_c);
             APP_ERROR_CHECK(err_code);
@@ -301,11 +302,16 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
             break;
 
         case BLE_NUS_C_EVT_NUS_RX_EVT:
-			NRF_LOG_INFO("BLE_NUS_C_EVT_NUS_RX_EVT");
-//            for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++)
-//            {
-//                while (app_uart_put( p_ble_nus_evt->p_data[i]) != NRF_SUCCESS);
-//            }
+			NRF_LOG_INFO("BLE_NUS_C_EVT_NUS_RX_EVT %d\r\n", p_ble_nus_c->conn_handle);
+			NRF_LOG_INFO("data_len %d\r\n", p_ble_nus_evt->data_len);
+            
+			//for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++)
+            //{
+			//	NRF_LOG_INFO("%c", (unsigned int)p_ble_nus_evt->p_data[i]);
+            //    while (app_uart_put( p_ble_nus_evt->p_data[i]) != NRF_SUCCESS);
+            //}
+			NRF_LOG_INFO("%s\r\n", (unsigned int)p_ble_nus_evt->p_data);
+			NRF_LOG_INFO("\r\n");
             break;
 
         case BLE_NUS_C_EVT_DISCONNECTED:
@@ -426,12 +432,10 @@ static void on_ble_evt(const ble_evt_t * const p_ble_evt)
 //                                                NULL);
 //            APP_ERROR_CHECK(err_code);
 			
-			NRF_LOG_INFO("--->1\n");
 			err_code = ble_nus_c_handles_assign(&m_ble_nus_c[p_gap_evt->conn_handle],
 										p_gap_evt->conn_handle,
 										NULL);
             APP_ERROR_CHECK(err_code);
-			NRF_LOG_INFO("--->2\n");
 
             err_code = ble_db_discovery_start(&m_ble_db_discovery[p_gap_evt->conn_handle],
                                               p_gap_evt->conn_handle);
@@ -440,8 +444,8 @@ static void on_ble_evt(const ble_evt_t * const p_ble_evt)
                 APP_ERROR_CHECK(err_code);
             }
 
-            err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
-            APP_ERROR_CHECK(err_code);
+//            err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
+//            APP_ERROR_CHECK(err_code);
 			scan_start();
             // Update LEDs status, and check if we should be looking for more
             // peripherals to connect to.
@@ -724,8 +728,10 @@ static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
                     p_evt->conn_handle);
     
 	
+	NRF_LOG_INFO("--->1\n");
 	//ble_lbs_on_db_disc_evt(&m_ble_lbs_c[p_evt->conn_handle], p_evt);
 	ble_nus_c_on_db_disc_evt(&m_ble_nus_c[p_evt->conn_handle], p_evt);
+	NRF_LOG_INFO("--->2\n");
 }
 
 
@@ -754,7 +760,7 @@ int main(void)
 
     err_code = NRF_LOG_INIT(NULL);
     APP_ERROR_CHECK(err_code);
-    NRF_LOG_INFO("Multilink BLE UART Example v.01\r\n");
+    NRF_LOG_INFO("Multilink BLE UART Example v.11\r\n");
 //    leds_init();
     APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, NULL);
 //    buttons_init();
