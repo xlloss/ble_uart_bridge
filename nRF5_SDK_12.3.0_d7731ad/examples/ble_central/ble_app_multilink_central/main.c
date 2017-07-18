@@ -62,8 +62,9 @@
 #include "ble_advertising.h"
 #include "ble_conn_params.h"
 #include "ble_db_discovery.h"
-#include "ble_lbs_c.h"
+//#include "ble_lbs_c.h"
 #include "ble_conn_state.h"
+#include "ble_nus_c.h"
 
 #define NRF_LOG_MODULE_NAME "APP"
 #include "nrf_log.h"
@@ -100,8 +101,19 @@
 #define LEDBUTTON_BUTTON_PIN      BSP_BUTTON_0                               /**< Button that will write to the LED characteristic of the peer */
 #define BUTTON_DETECTION_DELAY    APP_TIMER_TICKS(50, APP_TIMER_PRESCALER)   /**< Delay from a GPIOTE event until a button is reported as pushed (in number of timer ticks). */
 
-static const char m_target_periph_name[] = "Nordic_Blinky";                  /**< Name of the device we try to connect to. This name is searched for in the scan report data*/
+//static const char m_target_periph_name[] = "Nordic_Blinky";                  /**< Name of the device we try to connect to. This name is searched for in the scan report data*/
+static const char m_target_periph_name[] = "Nordic_UART";
 
+
+
+/**
+ * @brief NUS uuid
+ */
+//static const ble_uuid_t m_nus_uuid =
+//  {
+//    .uuid = BLE_UUID_NUS_SERVICE,
+//    .type = NUS_SERVICE_UUID_TYPE
+//  };
 
 /** @brief Scan parameters requested for scanning and connection. */
 static const ble_gap_scan_params_t m_scan_params =
@@ -131,9 +143,13 @@ static const ble_gap_conn_params_t m_connection_param =
     (uint16_t)SUPERVISION_TIMEOUT
 };
 
-static ble_lbs_c_t        m_ble_lbs_c[TOTAL_LINK_COUNT];           /**< Main structures used by the LED Button client module. */
-static uint8_t            m_ble_lbs_c_count;                       /**< Keeps track of how many instances of LED Button client module have been initialized. >*/
-static ble_db_discovery_t m_ble_db_discovery[TOTAL_LINK_COUNT];    /**< list of DB structures used by the database discovery module. */
+//static ble_lbs_c_t        m_ble_lbs_c[TOTAL_LINK_COUNT];           /**< Main structures used by the LED Button client module. */
+//static uint8_t            m_ble_lbs_c_count;                       /**< Keeps track of how many instances of LED Button client module have been initialized. >*/
+//static ble_db_discovery_t m_ble_db_discovery[TOTAL_LINK_COUNT];    /**< list of DB structures used by the database discovery module. */
+
+static ble_nus_c_t              m_ble_nus_c[TOTAL_LINK_COUNT];                    /**< Instance of NUS service. Must be passed to all NUS_C API calls. */
+//static uint8_t m_ble_nus_c_count;
+static ble_db_discovery_t       m_ble_db_discovery[TOTAL_LINK_COUNT];             /**< Instance of database discovery module. Must be passed to all db_discovert API calls */
 
 /**@brief Function to handle asserts in the SoftDevice.
  *
@@ -156,10 +172,10 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
  *
  * @details Initializes all LEDs used by the application.
  */
-static void leds_init(void)
-{
-    bsp_board_leds_init();
-}
+//static void leds_init(void)
+//{
+//    bsp_board_leds_init();
+//}
 
 
 /**
@@ -221,42 +237,80 @@ static void scan_start(void)
  * @param[in] p_lbs_c     The instance of LBS_C that triggered the event.
  * @param[in] p_lbs_c_evt The LBS_C event.
  */
-static void lbs_c_evt_handler(ble_lbs_c_t * p_lbs_c, ble_lbs_c_evt_t * p_lbs_c_evt)
+//static void lbs_c_evt_handler(ble_lbs_c_t * p_lbs_c, ble_lbs_c_evt_t * p_lbs_c_evt)
+//{
+//    switch (p_lbs_c_evt->evt_type)
+//    {
+//        case BLE_LBS_C_EVT_DISCOVERY_COMPLETE:
+//        {
+//            ret_code_t err_code;
+//
+//            NRF_LOG_INFO("LED Button service discovered on conn_handle 0x%x\r\n",
+//                    p_lbs_c_evt->conn_handle);
+//
+//            err_code = app_button_enable();
+//            APP_ERROR_CHECK(err_code);
+//
+//            // LED Button service discovered. Enable notification of Button.
+//            err_code = ble_lbs_c_button_notif_enable(p_lbs_c);
+//            APP_ERROR_CHECK(err_code);
+//        } break; // BLE_LBS_C_EVT_DISCOVERY_COMPLETE
+//
+//        case BLE_LBS_C_EVT_BUTTON_NOTIFICATION:
+//        {
+//            NRF_LOG_INFO("Link 0x%x, Button state changed on peer to 0x%x\r\n",
+//                           p_lbs_c_evt->conn_handle,
+//                           p_lbs_c_evt->params.button.button_state);
+//            if (p_lbs_c_evt->params.button.button_state)
+//            {
+//                bsp_board_led_on(LEDBUTTON_LED);
+//            }
+//            else
+//            {
+//                bsp_board_led_off(LEDBUTTON_LED);
+//            }
+//        } break; // BLE_LBS_C_EVT_BUTTON_NOTIFICATION
+//
+//        default:
+//            // No implementation needed.
+//            break;
+//    }
+//}
+
+/**@brief Callback handling NUS Client events.
+ *
+ * @details This function is called to notify the application of NUS client events.
+ *
+ * @param[in]   p_ble_nus_c   NUS Client Handle. This identifies the NUS client
+ * @param[in]   p_ble_nus_evt Pointer to the NUS Client event.
+ */
+
+/**@snippet [Handling events from the ble_nus_c module] */
+static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt_t * p_ble_nus_evt)
 {
-    switch (p_lbs_c_evt->evt_type)
+    uint32_t err_code;
+    switch (p_ble_nus_evt->evt_type)
     {
-        case BLE_LBS_C_EVT_DISCOVERY_COMPLETE:
-        {
-            ret_code_t err_code;
-
-            NRF_LOG_INFO("LED Button service discovered on conn_handle 0x%x\r\n",
-                    p_lbs_c_evt->conn_handle);
-
-            err_code = app_button_enable();
+        case BLE_NUS_C_EVT_DISCOVERY_COMPLETE:
+            err_code = ble_nus_c_handles_assign(p_ble_nus_c, p_ble_nus_evt->conn_handle, &p_ble_nus_evt->handles);
             APP_ERROR_CHECK(err_code);
 
-            // LED Button service discovered. Enable notification of Button.
-            err_code = ble_lbs_c_button_notif_enable(p_lbs_c);
+            err_code = ble_nus_c_rx_notif_enable(p_ble_nus_c);
             APP_ERROR_CHECK(err_code);
-        } break; // BLE_LBS_C_EVT_DISCOVERY_COMPLETE
+            NRF_LOG_INFO("The device has the Nordic UART Service\r\n");
+            break;
 
-        case BLE_LBS_C_EVT_BUTTON_NOTIFICATION:
-        {
-            NRF_LOG_INFO("Link 0x%x, Button state changed on peer to 0x%x\r\n",
-                           p_lbs_c_evt->conn_handle,
-                           p_lbs_c_evt->params.button.button_state);
-            if (p_lbs_c_evt->params.button.button_state)
-            {
-                bsp_board_led_on(LEDBUTTON_LED);
-            }
-            else
-            {
-                bsp_board_led_off(LEDBUTTON_LED);
-            }
-        } break; // BLE_LBS_C_EVT_BUTTON_NOTIFICATION
+        case BLE_NUS_C_EVT_NUS_RX_EVT:
+			NRF_LOG_INFO("BLE_NUS_C_EVT_NUS_RX_EVT");
+//            for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++)
+//            {
+//                while (app_uart_put( p_ble_nus_evt->p_data[i]) != NRF_SUCCESS);
+//            }
+            break;
 
-        default:
-            // No implementation needed.
+        case BLE_NUS_C_EVT_DISCONNECTED:
+            NRF_LOG_INFO("Disconnected\r\n");
+            scan_start();
             break;
     }
 }
@@ -275,6 +329,7 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
     // For readibility.
     const ble_gap_evt_t * const p_gap_evt    = &p_ble_evt->evt.gap_evt;
     const ble_gap_addr_t  * const peer_addr  = &p_gap_evt->params.adv_report.peer_addr;
+	const ble_gap_evt_adv_report_t * p_adv_report = &p_gap_evt->params.adv_report;
 
     // Initialize advertisement report for parsing
     adv_data.p_data = (uint8_t *)p_gap_evt->params.adv_report.data;
@@ -322,7 +377,16 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
         if (err_code != NRF_SUCCESS)
         {
             NRF_LOG_ERROR("Connection Request Failed, reason %d\r\n", err_code);
-        }
+        } else {
+                    printf("Connecting to target %02x%02x%02x%02x%02x%02x\r\n",
+                             p_adv_report->peer_addr.addr[0],
+                             p_adv_report->peer_addr.addr[1],
+                             p_adv_report->peer_addr.addr[2],
+                             p_adv_report->peer_addr.addr[3],
+                             p_adv_report->peer_addr.addr[4],
+                             p_adv_report->peer_addr.addr[5]);
+				}
+
     }
 }
 
@@ -347,7 +411,8 @@ static void on_ble_evt(const ble_evt_t * const p_ble_evt)
 
     switch (p_ble_evt->header.evt_id)
     {
-        // Upon connection, check which peripheral has connected, initiate DB
+
+  // Upon connection, check which peripheral has connected, initiate DB
         // discovery, update LEDs status and resume scanning if necessary.
         case BLE_GAP_EVT_CONNECTED:
         {
@@ -355,10 +420,10 @@ static void on_ble_evt(const ble_evt_t * const p_ble_evt)
                          p_gap_evt->conn_handle);
             APP_ERROR_CHECK_BOOL(p_gap_evt->conn_handle < TOTAL_LINK_COUNT);
 
-            err_code = ble_lbs_c_handles_assign(&m_ble_lbs_c[p_gap_evt->conn_handle],
-                                                p_gap_evt->conn_handle,
-                                                NULL);
-            APP_ERROR_CHECK(err_code);
+//            err_code = ble_lbs_c_handles_assign(&m_ble_lbs_c[p_gap_evt->conn_handle],
+//                                                p_gap_evt->conn_handle,
+//                                                NULL);
+//            APP_ERROR_CHECK(err_code);
 
             err_code = ble_db_discovery_start(&m_ble_db_discovery[p_gap_evt->conn_handle],
                                               p_gap_evt->conn_handle);
@@ -367,26 +432,29 @@ static void on_ble_evt(const ble_evt_t * const p_ble_evt)
                 APP_ERROR_CHECK(err_code);
             }
 
+            err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
+            APP_ERROR_CHECK(err_code);
+
             // Update LEDs status, and check if we should be looking for more
             // peripherals to connect to.
-            bsp_board_led_on(CENTRAL_CONNECTED_LED);
-            if (ble_conn_state_n_centrals() == CENTRAL_LINK_COUNT)
-            {
-                bsp_board_led_off(CENTRAL_SCANNING_LED);
-            }
-            else
-            {
-                // Resume scanning.
-                bsp_board_led_on(CENTRAL_SCANNING_LED);
-                scan_start();
-            }
+//            bsp_board_led_on(CENTRAL_CONNECTED_LED);
+//            if (ble_conn_state_n_centrals() == CENTRAL_LINK_COUNT)
+//            {
+//                bsp_board_led_off(CENTRAL_SCANNING_LED);
+//            }
+//            else
+//            {
+//                // Resume scanning.
+//                bsp_board_led_on(CENTRAL_SCANNING_LED);
+//                scan_start();
+//            }
         } break; // BLE_GAP_EVT_CONNECTED
 
         // Upon disconnection, reset the connection handle of the peer which disconnected, update
         // the LEDs status and start scanning again.
         case BLE_GAP_EVT_DISCONNECTED:
         {
-            uint32_t central_link_cnt; // Number of central links.
+//            uint32_t central_link_cnt; // Number of central links.
 
             NRF_LOG_INFO("LBS central link 0x%x disconnected (reason: 0x%x)\r\n",
                          p_gap_evt->conn_handle,
@@ -399,12 +467,12 @@ static void on_ble_evt(const ble_evt_t * const p_ble_evt)
             scan_start();
 
             // Update LEDs status.
-            bsp_board_led_on(CENTRAL_SCANNING_LED);
-            central_link_cnt = ble_conn_state_n_centrals();
-            if (central_link_cnt == 0)
-            {
-                bsp_board_led_off(CENTRAL_CONNECTED_LED);
-            }
+            //bsp_board_led_on(CENTRAL_SCANNING_LED);
+            //central_link_cnt = ble_conn_state_n_centrals();
+            //if (central_link_cnt == 0)
+            //{
+            //    bsp_board_led_off(CENTRAL_CONNECTED_LED);
+            //}
         } break;
 
         case BLE_GAP_EVT_ADV_REPORT:
@@ -481,26 +549,43 @@ static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
     if (conn_handle < TOTAL_LINK_COUNT)
     {
         ble_db_discovery_on_ble_evt(&m_ble_db_discovery[conn_handle], p_ble_evt);
-        ble_lbs_c_on_ble_evt(&m_ble_lbs_c[conn_handle], p_ble_evt);
+        //ble_lbs_c_on_ble_evt(&m_ble_lbs_c[conn_handle], p_ble_evt);
+		ble_nus_c_on_ble_evt(&m_ble_nus_c[conn_handle],p_ble_evt);
     }
 }
 
 
 /**@brief LED Button collector initialization.
  */
-static void lbs_c_init(void)
+//static void lbs_c_init(void)
+//{
+//    uint32_t         err_code;
+//    ble_lbs_c_init_t lbs_c_init_obj;
+//
+//    lbs_c_init_obj.evt_handler = lbs_c_evt_handler;
+//
+//    for (m_ble_lbs_c_count = 0; m_ble_lbs_c_count < TOTAL_LINK_COUNT; m_ble_lbs_c_count++)
+//    {
+//        err_code = ble_lbs_c_init(&m_ble_lbs_c[m_ble_lbs_c_count], &lbs_c_init_obj);
+//        APP_ERROR_CHECK(err_code);
+//    }
+//    m_ble_lbs_c_count = 0;
+//}
+
+/**@brief Function for initializing the NUS Client.
+ */
+static void nus_c_init(void)
 {
     uint32_t         err_code;
-    ble_lbs_c_init_t lbs_c_init_obj;
-
-    lbs_c_init_obj.evt_handler = lbs_c_evt_handler;
-
-    for (m_ble_lbs_c_count = 0; m_ble_lbs_c_count < TOTAL_LINK_COUNT; m_ble_lbs_c_count++)
-    {
-        err_code = ble_lbs_c_init(&m_ble_lbs_c[m_ble_lbs_c_count], &lbs_c_init_obj);
-        APP_ERROR_CHECK(err_code);
-    }
-    m_ble_lbs_c_count = 0;
+    ble_nus_c_init_t nus_c_init_t;
+	uint8_t m_ble_nus_c_count;
+	
+    nus_c_init_t.evt_handler = ble_nus_c_evt_handler;
+	
+	for (m_ble_nus_c_count = 0; m_ble_nus_c_count < TOTAL_LINK_COUNT; m_ble_nus_c_count++) {
+		err_code = ble_nus_c_init(&m_ble_nus_c[m_ble_nus_c_count], &nus_c_init_t);
+		APP_ERROR_CHECK(err_code);
+	}
 }
 
 
@@ -552,22 +637,22 @@ static void ble_stack_init(void)
  *
  * @return NRF_SUCCESS on success, else the error code from ble_lbs_led_status_send.
  */
-static uint32_t led_status_send_to_all(uint8_t button_action)
-{
-    uint32_t err_code;
-
-    for (uint32_t i = 0; i< CENTRAL_LINK_COUNT; i++)
-    {
-        err_code = ble_lbs_led_status_send(&m_ble_lbs_c[i], button_action);
-        if (err_code != NRF_SUCCESS &&
-            err_code != BLE_ERROR_INVALID_CONN_HANDLE &&
-            err_code != NRF_ERROR_INVALID_STATE)
-        {
-            return err_code;
-        }
-    }
-        return NRF_SUCCESS;
-}
+//static uint32_t led_status_send_to_all(uint8_t button_action)
+//{
+//    uint32_t err_code;
+//
+//    for (uint32_t i = 0; i< CENTRAL_LINK_COUNT; i++)
+//    {
+//        err_code = ble_lbs_led_status_send(&m_ble_lbs_c[i], button_action);
+//        if (err_code != NRF_SUCCESS &&
+//            err_code != BLE_ERROR_INVALID_CONN_HANDLE &&
+//            err_code != NRF_ERROR_INVALID_STATE)
+//        {
+//            return err_code;
+//        }
+//    }
+//        return NRF_SUCCESS;
+//}
 
 
 /**@brief Function for handling events from the button handler module.
@@ -575,43 +660,43 @@ static uint32_t led_status_send_to_all(uint8_t button_action)
  * @param[in] pin_no        The pin that the event applies to.
  * @param[in] button_action The button action (press/release).
  */
-static void button_event_handler(uint8_t pin_no, uint8_t button_action)
-{
-    uint32_t err_code;
-
-    switch (pin_no)
-    {
-        case LEDBUTTON_BUTTON_PIN:
-            err_code = led_status_send_to_all(button_action);
-            if (err_code == NRF_SUCCESS)
-            {
-                NRF_LOG_INFO("LBS write LED state %d\r\n", button_action);
-            }
-            break;
-
-        default:
-            APP_ERROR_HANDLER(pin_no);
-            break;
-    }
-}
+//static void button_event_handler(uint8_t pin_no, uint8_t button_action)
+//{
+//    uint32_t err_code;
+//
+//    switch (pin_no)
+//    {
+//        case LEDBUTTON_BUTTON_PIN:
+//            err_code = led_status_send_to_all(button_action);
+//            if (err_code == NRF_SUCCESS)
+//            {
+//                NRF_LOG_INFO("LBS write LED state %d\r\n", button_action);
+//            }
+//            break;
+//
+//        default:
+//            APP_ERROR_HANDLER(pin_no);
+//            break;
+//    }
+//}
 
 
 /**@brief Function for initializing the button handler module.
  */
-static void buttons_init(void)
-{
-    uint32_t err_code;
-
-   //The array must be static because a pointer to it will be saved in the button handler module.
-    static app_button_cfg_t buttons[] =
-    {
-        {LEDBUTTON_BUTTON_PIN, false, BUTTON_PULL, button_event_handler}
-    };
-
-    err_code = app_button_init(buttons, sizeof(buttons) / sizeof(buttons[0]),
-                               BUTTON_DETECTION_DELAY);
-    APP_ERROR_CHECK(err_code);
-}
+//static void buttons_init(void)
+//{
+//    uint32_t err_code;
+//
+//   //The array must be static because a pointer to it will be saved in the button handler module.
+//    static app_button_cfg_t buttons[] =
+//    {
+//        {LEDBUTTON_BUTTON_PIN, false, BUTTON_PULL, button_event_handler}
+//    };
+//
+//    err_code = app_button_init(buttons, sizeof(buttons) / sizeof(buttons[0]),
+//                               BUTTON_DETECTION_DELAY);
+//    APP_ERROR_CHECK(err_code);
+//}
 
 
 /**@brief Function for handling database discovery events.
@@ -627,7 +712,10 @@ static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
     NRF_LOG_INFO("call to ble_lbs_on_db_disc_evt for instance %d and link 0x%x!\r\n",
                     p_evt->conn_handle,
                     p_evt->conn_handle);
-    ble_lbs_on_db_disc_evt(&m_ble_lbs_c[p_evt->conn_handle], p_evt);
+    
+	
+	//ble_lbs_on_db_disc_evt(&m_ble_lbs_c[p_evt->conn_handle], p_evt);
+	ble_nus_c_on_db_disc_evt(&m_ble_nus_c[p_evt->conn_handle], p_evt);
 }
 
 
@@ -657,20 +745,21 @@ int main(void)
     err_code = NRF_LOG_INIT(NULL);
     APP_ERROR_CHECK(err_code);
     NRF_LOG_INFO("Multilink Example\r\n");
-    leds_init();
+//    leds_init();
     APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, NULL);
-    buttons_init();
+//    buttons_init();
     ble_stack_init();
 
     db_discovery_init();
-    lbs_c_init();
+//    lbs_c_init();
+	nus_c_init();
 
     // Start scanning for peripherals and initiate connection to devices which
     // advertise.
     scan_start();
 
     // Turn on the LED to signal scanning.
-    bsp_board_led_on(CENTRAL_SCANNING_LED);
+//    bsp_board_led_on(CENTRAL_SCANNING_LED);
 
     for (;;)
     {
