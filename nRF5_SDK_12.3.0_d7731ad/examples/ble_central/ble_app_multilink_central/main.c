@@ -473,7 +473,7 @@ static void on_ble_evt(const ble_evt_t * const p_ble_evt)
                          p_gap_evt->params.disconnected.reason);
 
             //err_code = app_button_disable();
-            APP_ERROR_CHECK(err_code);
+            //APP_ERROR_CHECK(err_code);
 
             // Start scanning
             scan_start();
@@ -488,7 +488,7 @@ static void on_ble_evt(const ble_evt_t * const p_ble_evt)
         } break;
 
         case BLE_GAP_EVT_ADV_REPORT:
-			NRF_LOG_INFO (">>>>> BLE_GAP_EVT_ADV_REPORT\n");
+			//NRF_LOG_INFO (">>>>> BLE_GAP_EVT_ADV_REPORT\n");
             on_adv_report(p_ble_evt);
             break;
 
