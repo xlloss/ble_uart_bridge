@@ -187,7 +187,7 @@
  
 
 #ifndef BLE_NUS_C_ENABLED
-#define BLE_NUS_C_ENABLED 0
+#define BLE_NUS_C_ENABLED 1
 #endif
 
 // <q> BLE_NUS_ENABLED  - ble_nus - Nordic UART Service
