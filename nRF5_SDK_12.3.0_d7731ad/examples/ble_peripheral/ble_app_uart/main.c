@@ -112,6 +112,11 @@ static ble_uuid_t                       m_adv_uuids[] = {{BLE_UUID_NUS_SERVICE, 
 #define TIMER_BLE_TX_INTERVAL      APP_TIMER_TICKS(2000, APP_TIMER_PRESCALER)
 APP_TIMER_DEF(m_ble_tx_timer_id);
 
+#define UART_TX_AUTO_SEND
+/* #define NUS_TX_AUTO_SEND */
+#define AUTO_TEST_DATA "8:test_data888888888"
+#define STR_LEN 20
+
 /**@brief Function for assert macro callback.
  *
  * @details This function will be called in case of an assert in the SoftDevice.
@@ -621,6 +626,7 @@ static void power_manage(void)
 
 
 
+
 /**@brief Function for handling the Battery measurement timer timeout.
  *
  * @details This function will be called each time the battery level measurement timer expires.
@@ -630,23 +636,28 @@ static void power_manage(void)
  */
 static void ble_tx_timeout_handler(void * p_context)
 {
-	uint32_t str_len = 20;
-  uint8_t data_array[BLE_NUS_MAX_DATA_LEN] = {"8:test_data888888888"}, i = 0;
-	uint32_t       err_code;
+	uint32_t str_len = STR_LEN;
+  uint8_t data_array[BLE_NUS_MAX_DATA_LEN] = {AUTO_TEST_DATA}, i = 0;
+#ifdef NUS_TX_AUTO_SEND
+	uint32_t err_code;
+#endif
 
 	UNUSED_PARAMETER(p_context);
 	NRF_LOG_INFO("\r\nble_tx_timeout_handler\r\n");
 
-#if 0
-	for (i = 0; i < str_len; i++) {
-		app_uart_put(data_array[i]);
-	}
-#else	
+#ifdef NUS_TX_AUTO_SEND
   err_code = ble_nus_string_send(&m_nus, data_array, str_len);
   if (err_code != NRF_ERROR_INVALID_STATE) {
       APP_ERROR_CHECK(err_code);
   }
 #endif
+
+#ifdef UART_TX_AUTO_SEND
+  for (i = 0; i < str_len; i++) {
+		app_uart_put(data_array[i]);
+	}
+#endif
+
 }
 
 static void application_timers_start(void)
@@ -669,7 +680,7 @@ static void timers_init(void)
     // Initialize timer module.
     APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, false);
 
-	// Create timers.
+    // Create timers.
     err_code = app_timer_create(&m_ble_tx_timer_id,
                                 APP_TIMER_MODE_REPEATED,
                                 ble_tx_timeout_handler);
@@ -688,8 +699,7 @@ int main(void)
     APP_ERROR_CHECK(err_code_log);
 
     // Initialize.
-    //APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, false);
-	timers_init();
+    timers_init();
     uart_init();
 
 	
@@ -701,7 +711,7 @@ int main(void)
     conn_params_init();
 
     NRF_LOG_INFO("\r\nUART Start!\r\n");
-		printf("\r\nUART Start!\r\n");
+    printf("\r\nUART Start!\r\n");
     err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
     APP_ERROR_CHECK(err_code);
 #if 1
