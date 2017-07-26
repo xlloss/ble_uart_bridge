@@ -65,6 +65,10 @@
 #include "app_util_platform.h"
 #include "bsp.h"
 #include "bsp_btn_ble.h"
+#define NRF_LOG_MODULE_NAME "APP"
+#include "nrf_log.h"
+#include "nrf_log_ctrl.h"
+#include "nrf_temp.h"
 
 #define IS_SRVC_CHANGED_CHARACT_PRESENT 0                                           /**< Include the service_changed characteristic. If not enabled, the server's database cannot be changed for the lifetime of the device. */
 
@@ -104,6 +108,9 @@ static uint16_t                         m_conn_handle = BLE_CONN_HANDLE_INVALID;
 
 static ble_uuid_t                       m_adv_uuids[] = {{BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}};  /**< Universally unique service identifier. */
 
+
+#define TIMER_BLE_TX_INTERVAL      APP_TIMER_TICKS(2000, APP_TIMER_PRESCALER)
+APP_TIMER_DEF(m_ble_tx_timer_id);
 
 /**@brief Function for assert macro callback.
  *
@@ -496,6 +503,7 @@ void uart_event_handle(app_uart_evt_t * p_event)
     switch (p_event->evt_type)
     {
         case APP_UART_DATA_READY:
+						NRF_LOG_INFO("\r\nAPP_UART_DATA_READY\r\n");
             UNUSED_VARIABLE(app_uart_get(&data_array[index]));
             index++;
 
@@ -612,17 +620,79 @@ static void power_manage(void)
 }
 
 
+
+/**@brief Function for handling the Battery measurement timer timeout.
+ *
+ * @details This function will be called each time the battery level measurement timer expires.
+ *
+ * @param[in] p_context  Pointer used for passing some arbitrary information (context) from the
+ *                       app_start_timer() call to the timeout handler.
+ */
+static void ble_tx_timeout_handler(void * p_context)
+{
+	uint32_t str_len = 20;
+  uint8_t data_array[BLE_NUS_MAX_DATA_LEN] = {"8:test_data888888888"}, i = 0;
+	uint32_t       err_code;
+
+	UNUSED_PARAMETER(p_context);
+	NRF_LOG_INFO("\r\nble_tx_timeout_handler\r\n");
+
+#if 0
+	for (i = 0; i < str_len; i++) {
+		app_uart_put(data_array[i]);
+	}
+#else	
+  err_code = ble_nus_string_send(&m_nus, data_array, str_len);
+  if (err_code != NRF_ERROR_INVALID_STATE) {
+      APP_ERROR_CHECK(err_code);
+  }
+#endif
+}
+
+static void application_timers_start(void)
+{
+    uint32_t err_code;
+
+    // Start application timers.
+    err_code = app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
+    APP_ERROR_CHECK(err_code);
+}
+
+/**@brief Function for the Timer initialization.
+ *
+ * @details Initializes the timer module. This creates and starts application timers.
+ */
+static void timers_init(void)
+{
+    uint32_t err_code;
+
+    // Initialize timer module.
+    APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, false);
+
+	// Create timers.
+    err_code = app_timer_create(&m_ble_tx_timer_id,
+                                APP_TIMER_MODE_REPEATED,
+                                ble_tx_timeout_handler);
+    APP_ERROR_CHECK(err_code);
+}
+
 /**@brief Application main function.
  */
 int main(void)
 {
     uint32_t err_code;
     bool erase_bonds;
+    ret_code_t err_code_log;
+
+    err_code_log = NRF_LOG_INIT(NULL);
+    APP_ERROR_CHECK(err_code_log);
 
     // Initialize.
-    APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, false);
+    //APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, false);
+	timers_init();
     uart_init();
 
+	
     buttons_leds_init(&erase_bonds);
     ble_stack_init();
     gap_params_init();
@@ -630,14 +700,20 @@ int main(void)
     advertising_init();
     conn_params_init();
 
-    printf("\r\nUART Start!\r\n");
+    NRF_LOG_INFO("\r\nUART Start!\r\n");
+		printf("\r\nUART Start!\r\n");
     err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
     APP_ERROR_CHECK(err_code);
-
+#if 1
+	application_timers_start();
+#endif
     // Enter main loop.
     for (;;)
     {
-        power_manage();
+        if (NRF_LOG_PROCESS() == false)
+        {
+			power_manage();
+		}
     }
 }
 
