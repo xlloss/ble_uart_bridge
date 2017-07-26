@@ -166,7 +166,7 @@
  
 
 #ifndef BLE_LBS_C_ENABLED
-#define BLE_LBS_C_ENABLED 1
+#define BLE_LBS_C_ENABLED 0
 #endif
 
 // <q> BLE_LBS_ENABLED  - ble_lbs - LED Button Service
