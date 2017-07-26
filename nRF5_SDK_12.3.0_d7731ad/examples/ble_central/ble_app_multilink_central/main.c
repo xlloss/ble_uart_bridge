@@ -58,6 +58,7 @@
 #include "ble.h"
 #include "ble_hci.h"
 #include "app_uart.h"
+#include "app_fifo.h"
 #include "ble_advdata.h"
 #include "ble_advertising.h"
 #include "ble_conn_params.h"
@@ -69,6 +70,10 @@
 #define NRF_LOG_MODULE_NAME "APP"
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
+
+#define UART_TX_BUF_SIZE                256                                         /**< UART TX buffer size. */
+#define UART_RX_BUF_SIZE                256                                         /**< UART RX buffer size. */
+
 
 #if (NRF_SD_BLE_API_VERSION == 3)
 #define NRF_BLE_MAX_MTU_SIZE      GATT_MTU_SIZE_DEFAULT                      /**< MTU size used in the softdevice enabling and to reply to a BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST event. */
@@ -303,15 +308,18 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 
         case BLE_NUS_C_EVT_NUS_RX_EVT:
 			NRF_LOG_INFO("BLE_NUS_C_EVT_NUS_RX_EVT %d\r\n", p_ble_nus_c->conn_handle);
-			NRF_LOG_INFO("data_len %d\r\n", p_ble_nus_evt->data_len);
-            
-			//for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++)
-            //{
+			//NRF_LOG_INFO("data_len %d\r\n", p_ble_nus_evt->data_len);
+#if 1
+			for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++)
+            {
 			//	NRF_LOG_INFO("%c", (unsigned int)p_ble_nus_evt->p_data[i]);
-            //    while (app_uart_put( p_ble_nus_evt->p_data[i]) != NRF_SUCCESS);
-            //}
-			NRF_LOG_INFO("%s\r\n", (unsigned int)p_ble_nus_evt->p_data);
-			NRF_LOG_INFO("\r\n");
+                while (app_uart_put( p_ble_nus_evt->p_data[i]) != NRF_SUCCESS);
+            }
+#else
+
+			//NRF_LOG_INFO("%s\r\n", (unsigned int)p_ble_nus_evt->p_data);
+			//NRF_LOG_INFO("\r\n");
+#endif						
             break;
 
         case BLE_NUS_C_EVT_DISCONNECTED:
@@ -320,6 +328,72 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
             break;
     }
 }
+
+
+/**@snippet [Handling the data received over UART] */
+void uart_event_handle(app_uart_evt_t * p_event)
+{
+    static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
+    static uint8_t index = 0;
+    uint32_t       err_code;
+
+    switch (p_event->evt_type)
+    {
+        case APP_UART_DATA_READY:
+//						NRF_LOG_INFO("\r\nAPP_UART_DATA_READY\r\n");
+//            UNUSED_VARIABLE(app_uart_get(&data_array[index]));
+//            index++;
+//
+//            if ((data_array[index - 1] == '\n') || (index >= (BLE_NUS_MAX_DATA_LEN)))
+//            {
+//                err_code = ble_nus_string_send(&m_nus, data_array, index);
+//                if (err_code != NRF_ERROR_INVALID_STATE)
+//                {
+//                    APP_ERROR_CHECK(err_code);
+//                }
+//
+//                index = 0;
+//            }
+            break;
+
+        case APP_UART_COMMUNICATION_ERROR:
+            APP_ERROR_HANDLER(p_event->data.error_communication);
+            break;
+
+        case APP_UART_FIFO_ERROR:
+            APP_ERROR_HANDLER(p_event->data.error_code);
+            break;
+
+        default:
+            break;
+    }
+}
+/**@snippet [Handling the data received over UART] */
+
+/**@snippet [UART Initialization] */
+static void uart_init(void)
+{
+    uint32_t                     err_code;
+    const app_uart_comm_params_t comm_params =
+    {
+        RX_PIN_NUMBER,
+        TX_PIN_NUMBER,
+        RTS_PIN_NUMBER,
+        CTS_PIN_NUMBER,
+        APP_UART_FLOW_CONTROL_DISABLED,
+        false,
+        UART_BAUDRATE_BAUDRATE_Baud115200
+    };
+
+    APP_UART_FIFO_INIT( &comm_params,
+                       UART_RX_BUF_SIZE,
+                       UART_TX_BUF_SIZE,
+                       uart_event_handle,
+                       APP_IRQ_PRIORITY_LOWEST,
+                       err_code);
+    APP_ERROR_CHECK(err_code);
+}
+/**@snippet [UART Initialization] */
 
 /**@brief Function for handling the advertising report BLE event.
  *
@@ -764,6 +838,7 @@ int main(void)
 //    leds_init();
     APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, NULL);
 //    buttons_init();
+		uart_init();
     ble_stack_init();
 
     db_discovery_init();
