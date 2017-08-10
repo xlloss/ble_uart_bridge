@@ -108,6 +108,18 @@ static uint16_t                         m_conn_handle = BLE_CONN_HANDLE_INVALID;
 
 static ble_uuid_t                       m_adv_uuids[] = {{BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}};  /**< Universally unique service identifier. */
 
+#define MAC_ADDR_ITEM 0
+uint8_t mac_addr_cust[7][6] = {
+      {0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+      {0x11, 0x11, 0x22, 0x33, 0x44, 0x55},
+      {0x22, 0x11, 0x22, 0x33, 0x44, 0x55},
+      {0x33, 0x11, 0x22, 0x33, 0x44, 0x55},
+      {0x44, 0x11, 0x22, 0x33, 0x44, 0x55},
+      {0x55, 0x11, 0x22, 0x33, 0x44, 0x55},
+      {0x66, 0x11, 0x22, 0x33, 0x44, 0x55}};
+
+
+static ble_gap_addr_t new_mac_addr;
 
 #define TIMER_BLE_TX_INTERVAL      APP_TIMER_TICKS(2000, APP_TIMER_PRESCALER)
 APP_TIMER_DEF(m_ble_tx_timer_id);
@@ -709,6 +721,10 @@ int main(void)
     services_init();
     advertising_init();
     conn_params_init();
+
+    /* setting new mac addr */
+    memcpy (new_mac_addr.addr, &mac_addr_cust[MAC_ADDR_ITEM ][0], sizeof (unsigned char) * 6);
+    sd_ble_gap_addr_set(&new_mac_addr);
 
     NRF_LOG_INFO("\r\nUART Start!\r\n");
     printf("\r\nUART Start!\r\n");
