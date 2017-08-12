@@ -66,6 +66,9 @@
 #include "ble_conn_state.h"
 #include "ble_nus_c.h"
 
+#define TEST_VERSION "Multilink BLE UART Example v.20\r\n"
+//#define NEW_MAC_ADDRESS_TEST
+
 #define NRF_LOG_MODULE_NAME "APP"
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
@@ -139,6 +142,17 @@ static const ble_gap_conn_params_t m_connection_param =
 static ble_nus_c_t              m_ble_nus_c[TOTAL_LINK_COUNT];                    /**< Instance of NUS service. Must be passed to all NUS_C API calls. */
 static ble_db_discovery_t       m_ble_db_discovery[TOTAL_LINK_COUNT];             /**< Instance of database discovery module. Must be passed to all db_discovert API calls */
 
+static const ble_gap_addr_t m_target_periph_addr =
+{
+    /* Possible values for addr_type:
+       BLE_GAP_ADDR_TYPE_PUBLIC,
+       BLE_GAP_ADDR_TYPE_RANDOM_STATIC,
+       BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_RESOLVABLE,
+       BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_NON_RESOLVABLE. */
+    .addr_type = BLE_GAP_ADDR_TYPE_RANDOM_STATIC,
+    .addr      = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+};
+
 /**@brief Function to handle asserts in the SoftDevice.
  *
  * @details This function will be called in case of an assert in the SoftDevice.
@@ -155,7 +169,8 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
     app_error_handler(0xDEADBEEF, line_num, p_file_name);
 }
 
-
+#ifndef NEW_MAC_ADDRESS_TEST
+//#error Not define NEW_MAC_ADDRESS_TEST
 /**
  * @brief Parses advertisement data, providing length and location of the field in case
  *        matching data is found.
@@ -168,6 +183,7 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
  * @retval NRF_SUCCESS if the data type is found in the report.
  * @retval NRF_ERROR_NOT_FOUND if the data type could not be found.
  */
+
 static uint32_t adv_report_parse(uint8_t type, uint8_array_t * p_advdata, uint8_array_t * p_typedata)
 {
     uint32_t  index = 0;
@@ -190,7 +206,7 @@ static uint32_t adv_report_parse(uint8_t type, uint8_array_t * p_advdata, uint8_
     }
     return NRF_ERROR_NOT_FOUND;
 }
-
+#endif
 
 /**@brief Function to start scanning.
  */
@@ -316,6 +332,30 @@ static void uart_init(void)
                        err_code);
     APP_ERROR_CHECK(err_code);
 }
+
+
+/**@brief Function for searching a given addr in the advertisement packets.
+ *
+ * @details Use this function to parse received advertising data and to find a given
+ * addr in them.
+ *
+ * @param[in]   p_adv_report   advertising data to parse.
+ * @param[in]   p_addr   name to search.
+ * @return   true if the given name was found, false otherwise.
+ */
+static bool find_peer_addr(const ble_gap_evt_adv_report_t *p_adv_report, const ble_gap_addr_t * p_addr)
+{
+    if (p_addr->addr_type == p_adv_report->peer_addr.addr_type)
+    {
+        if (memcmp(p_addr->addr, p_adv_report->peer_addr.addr, sizeof(p_adv_report->peer_addr.addr)) == 0)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+
 /**@snippet [UART Initialization] */
 
 /**@brief Function for handling the advertising report BLE event.
@@ -332,9 +372,11 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
     // For readibility.
     const ble_gap_evt_t * const p_gap_evt    = &p_ble_evt->evt.gap_evt;
     const ble_gap_addr_t  * const peer_addr  = &p_gap_evt->params.adv_report.peer_addr;
-	const ble_gap_evt_adv_report_t * p_adv_report = &p_gap_evt->params.adv_report;
+    const ble_gap_evt_adv_report_t * p_adv_report = &p_gap_evt->params.adv_report;
 
-    // Initialize advertisement report for parsing
+#ifndef NEW_MAC_ADDRESS_TEST
+//#error Not NEW_MAC_ADDRESS_TEST
+    //Initialize advertisement report for parsing
     adv_data.p_data = (uint8_t *)p_gap_evt->params.adv_report.data;
     adv_data.size   = p_gap_evt->params.adv_report.dlen;
 
@@ -363,7 +405,7 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
         found_name = true;
     }
     
-	if (found_name)
+    if (found_name)
     {
         if (strlen(m_target_periph_name) != 0)
         {
@@ -374,6 +416,12 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
         }
     }
 
+#else
+    if (find_peer_addr(&p_gap_evt->params.adv_report, &m_target_periph_addr)) {
+        NRF_LOG_INFO("Address match send connect_request.\r\n");
+        do_connect = true;
+    }
+#endif
     if (do_connect)
     {
         // Initiate connection.
@@ -392,6 +440,7 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
 				}
 
     }
+
 }
 
 /**@brief Function for handling BLE Stack events concerning central applications.
@@ -453,7 +502,7 @@ static void on_ble_evt(const ble_evt_t * const p_ble_evt)
         } break;
 
         case BLE_GAP_EVT_ADV_REPORT:
-			//NRF_LOG_INFO (">>>>> BLE_GAP_EVT_ADV_REPORT\n");
+            NRF_LOG_INFO (">>>>> BLE_GAP_EVT_ADV_REPORT\n");
             on_adv_report(p_ble_evt);
             break;
 
@@ -631,7 +680,7 @@ int main(void)
 
     err_code = NRF_LOG_INIT(NULL);
     APP_ERROR_CHECK(err_code);
-    NRF_LOG_INFO("Multilink BLE UART Example v.11\r\n");
+    NRF_LOG_INFO(TEST_VERSION);
     APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, NULL);
 		uart_init();
     ble_stack_init();
