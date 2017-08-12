@@ -156,8 +156,13 @@ static void gap_params_init(void)
     uint32_t                err_code;
     ble_gap_conn_params_t   gap_conn_params;
     ble_gap_conn_sec_mode_t sec_mode;
+    ret_code_t new_mac_err_code;
 
     BLE_GAP_CONN_SEC_MODE_SET_OPEN(&sec_mode);
+
+    memcpy (new_mac_addr.addr, &mac_addr_cust[MAC_ADDR_ITEM ][0], sizeof (unsigned char) * 6);
+    new_mac_err_code = sd_ble_gap_addr_set(&new_mac_addr);
+    APP_ERROR_CHECK(new_mac_err_code);
 
     err_code = sd_ble_gap_device_name_set(&sec_mode,
                                           (const uint8_t *) DEVICE_NAME,
@@ -713,19 +718,12 @@ int main(void)
     // Initialize.
     timers_init();
     uart_init();
-
-	
     buttons_leds_init(&erase_bonds);
     ble_stack_init();
     gap_params_init();
     services_init();
     advertising_init();
     conn_params_init();
-
-    /* setting new mac addr */
-    memcpy (new_mac_addr.addr, &mac_addr_cust[MAC_ADDR_ITEM ][0], sizeof (unsigned char) * 6);
-    sd_ble_gap_addr_set(&new_mac_addr);
-
     NRF_LOG_INFO("\r\nUART Start!\r\n");
     printf("\r\nUART Start!\r\n");
     err_code = ble_advertising_start(BLE_ADV_MODE_FAST);

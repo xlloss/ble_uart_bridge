@@ -67,7 +67,7 @@
 #include "ble_nus_c.h"
 
 #define TEST_VERSION "Multilink BLE UART Example v.20\r\n"
-//#define NEW_MAC_ADDRESS_TEST
+#define NEW_MAC_ADDRESS_TEST
 
 #define NRF_LOG_MODULE_NAME "APP"
 #include "nrf_log.h"
@@ -149,7 +149,7 @@ static const ble_gap_addr_t m_target_periph_addr =
        BLE_GAP_ADDR_TYPE_RANDOM_STATIC,
        BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_RESOLVABLE,
        BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_NON_RESOLVABLE. */
-    .addr_type = BLE_GAP_ADDR_TYPE_RANDOM_STATIC,
+    .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
     .addr      = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 };
 
@@ -502,7 +502,6 @@ static void on_ble_evt(const ble_evt_t * const p_ble_evt)
         } break;
 
         case BLE_GAP_EVT_ADV_REPORT:
-            NRF_LOG_INFO (">>>>> BLE_GAP_EVT_ADV_REPORT\n");
             on_adv_report(p_ble_evt);
             break;
 
