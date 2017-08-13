@@ -108,6 +108,9 @@
 #define LEDBUTTON_BUTTON_PIN      BSP_BUTTON_0                               /**< Button that will write to the LED characteristic of the peer */
 #define BUTTON_DETECTION_DELAY    APP_TIMER_TICKS(50, APP_TIMER_PRESCALER)   /**< Delay from a GPIOTE event until a button is reported as pushed (in number of timer ticks). */
 
+#define TIMER_BLE_TX_INTERVAL      APP_TIMER_TICKS(2000, APP_TIMER_PRESCALER)
+APP_TIMER_DEF(m_ble_tx_timer_id);
+
 static const char m_target_periph_name[] = "Nordic_UART";
 
 
@@ -229,11 +232,19 @@ static void scan_start(void)
  * @param[in]   p_ble_nus_c   NUS Client Handle. This identifies the NUS client
  * @param[in]   p_ble_nus_evt Pointer to the NUS Client event.
  */
+#define PACKET_LEN 30
+#define PACKET_HEAD 3
+#define PACKET_DATA_LEN (PACKET_LEN - PACKET_HEAD)
+unsigned char data_buf[PACKET_LEN];
+int buf_index = 0;
+int start_cnt = 0;
 
 /**@snippet [Handling events from the ble_nus_c module] */
 static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt_t * p_ble_nus_evt)
 {
     uint32_t err_code;
+    unsigned char head_ok = 0;
+    char packet_head[3], packet_head_fmt[3] = "$$$";
 
     switch (p_ble_nus_evt->evt_type)
     {
@@ -250,11 +261,39 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
             NRF_LOG_INFO("BLE_NUS_C_EVT_NUS_RX_EVT %d\r\n", p_ble_nus_c->conn_handle);
             /* NRF_LOG_INFO("data_len %d\r\n", p_ble_nus_evt->data_len); */
             
+            //for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++) {
+            ////	NRF_LOG_INFO("%c", (unsigned int)p_ble_nus_evt->p_data[i]);
+            //    while (app_uart_put( p_ble_nus_evt->p_data[i]) != NRF_SUCCESS);
+            //}
+            
+            //for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++) {
+            //  if (p_ble_nus_evt->p_data[i] == '$') {
+            //    head_ok ++;
+            //  } else if (head_ok == 3) {
+            //    p_ble_nus_evt->p_data[i]
+            //    head_ok = 0;
+            //  }
+            //}
+            //memcpy (packet_head, &p_ble_nus_evt->p_data[0], sizeof (char) * 3);
+            //if (strcmp (packet_head, packet_head_fmt) == 0)
+            //  NRF_LOG_INFO("HEAD FMT OK\r\n");
+            
             for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++) {
-            //	NRF_LOG_INFO("%c", (unsigned int)p_ble_nus_evt->p_data[i]);
-                while (app_uart_put( p_ble_nus_evt->p_data[i]) != NRF_SUCCESS);
+              if (p_ble_nus_evt->p_data[i] == '$') {
+                data_buf[start_cnt] = p_ble_nus_evt->p_data[i];
+                start_cnt = start_cnt + 1;
+              }
+              
+              if (start_cnt == PACKET_HEAD && buf_index < PACKET_DATA_LEN) {
+                data_buf[start_cnt + buf_index] = p_ble_nus_evt->p_data[i];
+                buf_index = buf_index + 1;
+              } 
+              
+              if (buf_index >= PACKET_DATA_LEN) {
+                buf_index = 0;
+                start_cnt = 0;
+              }
             }
-
             //NRF_LOG_INFO("%s\r\n", (unsigned int)p_ble_nus_evt->p_data);
             //NRF_LOG_INFO("\r\n");
             break;
@@ -672,6 +711,37 @@ static void power_manage(void)
     APP_ERROR_CHECK(err_code);
 }
 
+static void ble_process_buf_timeout_handler(void * p_context)
+{
+
+  UNUSED_PARAMETER(p_context);
+
+}
+
+
+static void application_timers_start(void)
+{
+    uint32_t err_code;
+
+    // Start application timers.
+    err_code = app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
+    APP_ERROR_CHECK(err_code);
+}
+
+/* For BLE uart RX buffer */
+static void timers_init(void)
+{
+    uint32_t err_code;
+
+    // Initialize timer module.
+    APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, false);
+
+    // Create timers.
+    err_code = app_timer_create(&m_ble_tx_timer_id,
+                                APP_TIMER_MODE_REPEATED,
+                                ble_process_buf_timeout_handler);
+    APP_ERROR_CHECK(err_code);
+}
 
 int main(void)
 {
@@ -680,7 +750,7 @@ int main(void)
     err_code = NRF_LOG_INIT(NULL);
     APP_ERROR_CHECK(err_code);
     NRF_LOG_INFO(TEST_VERSION);
-    APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, NULL);
+
 		uart_init();
     ble_stack_init();
 
