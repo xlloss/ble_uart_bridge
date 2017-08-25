@@ -31,7 +31,7 @@
  * DISCLAIMED. IN NO EVENT SHALL NORDIC SEMICONDUCTOR ASA OR CONTRIBUTORS BE
  * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
  * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * GOODS OR SERVICES; LOSS Oalloc_tx_bufF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
@@ -112,7 +112,29 @@
 APP_TIMER_DEF(m_ble_tx_timer_id);
 
 static const char m_target_periph_name[] = "Nordic_UART";
+#define PACKET_LEN 31
+#define PACKET_HEAD 3
+#define PACKET_DATA_LEN (PACKET_LEN - PACKET_HEAD)
+unsigned char data_buf[10][PACKET_LEN];
+int buf_index = 0;
+int buf_data_index = 0;
+int start_cnt = 0;
 
+
+struct uart_tx_fifo {
+  app_fifo_t tx_fifo_handle;
+  uint8_t *tx_buf;      /**< Pointer to the TX buffer. */
+  uint32_t tx_buf_size; /**< Size of the RX buffer. */
+};
+
+struct tx_packet_order {
+  uint8_t fifo_number;
+  uint32_t packet_size;
+};
+
+struct uart_tx_fifo tx_fifo;
+struct tx_packet_order packet_order;
+uint8_t alloc_tx_buf[512] = {0};
 
 /** @brief Scan parameters requested for scanning and connection. */
 static const ble_gap_scan_params_t m_scan_params =
@@ -232,19 +254,16 @@ static void scan_start(void)
  * @param[in]   p_ble_nus_c   NUS Client Handle. This identifies the NUS client
  * @param[in]   p_ble_nus_evt Pointer to the NUS Client event.
  */
-#define PACKET_LEN 30
-#define PACKET_HEAD 3
-#define PACKET_DATA_LEN (PACKET_LEN - PACKET_HEAD)
-unsigned char data_buf[PACKET_LEN];
-int buf_index = 0;
-int start_cnt = 0;
+
+//#define DEBUG
 
 /**@snippet [Handling events from the ble_nus_c module] */
 static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt_t * p_ble_nus_evt)
 {
     uint32_t err_code;
-    unsigned char head_ok = 0;
-    char packet_head[3], packet_head_fmt[3] = "$$$";
+    static uint32_t packet_data_cnt = 0;
+    static uint32_t packet_data_head0 = 0, packet_data_head1 = 0, packet_data_head2 = 0, packet_head[3] = {0};
+    static uint32_t packet_data_end0 = 0, packet_data_end1 = 0, packet_data_end2 = 0, packet_end[3] = {0};
 
     switch (p_ble_nus_evt->evt_type)
     {
@@ -258,44 +277,52 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
             break;
 
         case BLE_NUS_C_EVT_NUS_RX_EVT:
+#ifdef DEBUG
             NRF_LOG_INFO("BLE_NUS_C_EVT_NUS_RX_EVT %d\r\n", p_ble_nus_c->conn_handle);
-            /* NRF_LOG_INFO("data_len %d\r\n", p_ble_nus_evt->data_len); */
-            
-            //for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++) {
-            ////	NRF_LOG_INFO("%c", (unsigned int)p_ble_nus_evt->p_data[i]);
-            //    while (app_uart_put( p_ble_nus_evt->p_data[i]) != NRF_SUCCESS);
-            //}
-            
-            //for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++) {
-            //  if (p_ble_nus_evt->p_data[i] == '$') {
-            //    head_ok ++;
-            //  } else if (head_ok == 3) {
-            //    p_ble_nus_evt->p_data[i]
-            //    head_ok = 0;
-            //  }
-            //}
-            //memcpy (packet_head, &p_ble_nus_evt->p_data[0], sizeof (char) * 3);
-            //if (strcmp (packet_head, packet_head_fmt) == 0)
-            //  NRF_LOG_INFO("HEAD FMT OK\r\n");
-            
+            NRF_LOG_INFO("DBG : data_len %d\r\n", p_ble_nus_evt->data_len);
+            for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++)
+              NRF_LOG_INFO("%c\r\n", p_ble_nus_evt->p_data[i]);
+
+            NRF_LOG_INFO("\r\n");
+#endif
+              //packet_order
             for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++) {
-              if (p_ble_nus_evt->p_data[i] == '$') {
-                data_buf[start_cnt] = p_ble_nus_evt->p_data[i];
-                start_cnt = start_cnt + 1;
+              if (i + 2 < p_ble_nus_evt->data_len && packet_data_cnt == 0) {
+                packet_head[0] = (uint32_t)p_ble_nus_evt->p_data[i + 0];
+                packet_head[1] = (uint32_t)p_ble_nus_evt->p_data[i + 1];
+                packet_head[2] = (uint32_t)p_ble_nus_evt->p_data[i + 2];
               }
-              
-              if (start_cnt == PACKET_HEAD && buf_index < PACKET_DATA_LEN) {
-                data_buf[start_cnt + buf_index] = p_ble_nus_evt->p_data[i];
-                buf_index = buf_index + 1;
-              } 
-              
-              if (buf_index >= PACKET_DATA_LEN) {
-                buf_index = 0;
-                start_cnt = 0;
+
+              if (packet_head[0] == '$' && packet_head[1] == '$' && packet_head[2] == '$' && packet_data_cnt == 0) {
+                    err_code = app_fifo_put(&tx_fifo.tx_fifo_handle, (unsigned int)packet_head[0]);
+                    err_code = app_fifo_put(&tx_fifo.tx_fifo_handle, (unsigned int)packet_head[1]);
+                    err_code = app_fifo_put(&tx_fifo.tx_fifo_handle, (unsigned int)packet_head[2]);
+                    packet_data_cnt = 3;
+                    i = i + 3;
+              } else if (packet_data_cnt >= 3) {
+                    err_code = app_fifo_put(&tx_fifo.tx_fifo_handle, 
+                      (unsigned int)p_ble_nus_evt->p_data[i]);
+                    
+                    if (err_code != NRF_SUCCESS)
+                      NRF_LOG_INFO("app_fifo_put fail\r\n");
+                    
+                    packet_data_cnt = packet_data_cnt + 1;
+              }
+
+              if (i + 2 < p_ble_nus_evt->data_len && packet_data_cnt > 3) {
+                packet_end[0] = (uint32_t)p_ble_nus_evt->p_data[i + 0];
+                packet_end[1] = (uint32_t)p_ble_nus_evt->p_data[i + 1];
+                packet_end[2] = (uint32_t)p_ble_nus_evt->p_data[i + 2];
+                
+                if (packet_end[0] == '#' && packet_end[1] == '#' && packet_end[2] == '#') {
+                  packet_data_cnt = 0;
+                  packet_head[0] = 0;
+                  packet_head[1] = 0;
+                  packet_head[2] = 0;
+                }
               }
             }
-            //NRF_LOG_INFO("%s\r\n", (unsigned int)p_ble_nus_evt->p_data);
-            //NRF_LOG_INFO("\r\n");
+
             break;
 
         case BLE_NUS_C_EVT_DISCONNECTED:
@@ -625,14 +652,14 @@ static void nus_c_init(void)
 {
     uint32_t         err_code;
     ble_nus_c_init_t nus_c_init_t;
-	uint8_t m_ble_nus_c_count;
+    uint8_t m_ble_nus_c_count;
 	
     nus_c_init_t.evt_handler = ble_nus_c_evt_handler;
 	
-	for (m_ble_nus_c_count = 0; m_ble_nus_c_count < TOTAL_LINK_COUNT; m_ble_nus_c_count++) {
-		err_code = ble_nus_c_init(&m_ble_nus_c[m_ble_nus_c_count], &nus_c_init_t);
-		APP_ERROR_CHECK(err_code);
-	}
+    for (m_ble_nus_c_count = 0; m_ble_nus_c_count < TOTAL_LINK_COUNT; m_ble_nus_c_count++) {
+      err_code = ble_nus_c_init(&m_ble_nus_c[m_ble_nus_c_count], &nus_c_init_t);
+      APP_ERROR_CHECK(err_code);
+    }
 }
 
 
@@ -711,10 +738,22 @@ static void power_manage(void)
     APP_ERROR_CHECK(err_code);
 }
 
-static void ble_process_buf_timeout_handler(void * p_context)
+static void ble_process_buf_handler(void * p_context)
 {
-
+  int eat_i = 0;
+  unsigned char uart_tx_buffer;
+  uint32_t err_code;
   UNUSED_PARAMETER(p_context);
+  
+  NRF_LOG_INFO ("ble_process_buf_handler\r\n");
+  app_timer_stop(m_ble_tx_timer_id);
+  while (eat_i < 10) {
+    err_code = app_fifo_get(&tx_fifo.tx_fifo_handle, &uart_tx_buffer);
+    NRF_LOG_INFO ("eat_i %d uart_tx_buffer -> %c\r\n", eat_i, uart_tx_buffer);
+    eat_i ++;
+    //while (app_uart_put( p_ble_nus_evt->p_data[i]) != NRF_SUCCESS)
+  };
+  app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
 
 }
 
@@ -739,7 +778,7 @@ static void timers_init(void)
     // Create timers.
     err_code = app_timer_create(&m_ble_tx_timer_id,
                                 APP_TIMER_MODE_REPEATED,
-                                ble_process_buf_timeout_handler);
+                                ble_process_buf_handler);
     APP_ERROR_CHECK(err_code);
 }
 
@@ -750,16 +789,27 @@ int main(void)
     err_code = NRF_LOG_INIT(NULL);
     APP_ERROR_CHECK(err_code);
     NRF_LOG_INFO(TEST_VERSION);
+    
+    timers_init();
 
 		uart_init();
     ble_stack_init();
 
     db_discovery_init();
     nus_c_init();
+    
+    NRF_LOG_INFO("Multi Link Uart Bridge\r\n");
+
+    tx_fifo.tx_buf = &alloc_tx_buf[0];
+    tx_fifo.tx_buf_size = sizeof (alloc_tx_buf)/sizeof (alloc_tx_buf[0]);
+    NRF_LOG_INFO("tx_fifo.tx_buf_size %d\r\n", tx_fifo.tx_buf_size);
+    err_code = app_fifo_init(&tx_fifo.tx_fifo_handle, tx_fifo.tx_buf, tx_fifo.tx_buf_size);
+    APP_ERROR_CHECK(err_code);
 
     // Start scanning for peripherals and initiate connection to devices which
     // advertise.
     scan_start();
+    application_timers_start();
 
     for (;;)
     {
