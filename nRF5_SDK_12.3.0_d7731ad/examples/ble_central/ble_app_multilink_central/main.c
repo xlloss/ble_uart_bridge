@@ -118,6 +118,7 @@ static const char m_target_periph_name[] = "Nordic_UART";
 
 #define BUFFER_SZ 512
 #define TEST_VERSION "Multilink BLE UART Example v.20\r\n"
+#define TX_ORDER_NUM 256
 /* #define NEW_MAC_ADDRESS_TEST */
 
 unsigned char data_buf_cnt[CENTRAL_LINK_COUNT];
@@ -141,6 +142,9 @@ struct uart_tx_fifo tx_fifo[CENTRAL_LINK_COUNT];
 struct tx_packet_order packet_order;
 uint8_t alloc_tx_buf[CENTRAL_LINK_COUNT][BUFFER_SZ] = {0};
 static uint32_t packet_data_cnt[CENTRAL_LINK_COUNT] = {0};
+//static uint32_t packet_data_tx_order[TX_ORDER_NUM] = {0};
+int tx_order_index_buy = 0;
+int tx_order_index_sell = 0;
 
 /** @brief Scan parameters requested for scanning and connection. */
 static const ble_gap_scan_params_t m_scan_params =
@@ -321,10 +325,27 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
                 packet_end[2] = (uint32_t)p_ble_nus_evt->p_data[i + 2];
                 
                 if (packet_end[0] == '#' && packet_end[1] == '#' && packet_end[2] == '#') {
+
+//                if (tx_order_index_buy > tx_order_index_sell)
+//                    NRF_LOG_INFO("!!! Worry tx_order_index_buy %d; tx_order_index_sell %d!!!\r\n", 
+//                      tx_order_index_buy, tx_order_index_sell);
+//
+//                  packet_data_tx_order[tx_order_index_buy] = ble_hd;
+//                  tx_order_index_buy ++;
+//
+//                  packet_data_tx_order[tx_order_index_buy] = ble_hd;
+//                  tx_order_index_buy ++;
+//
+//                  packet_data_tx_order[tx_order_index_buy] = ble_hd;
+//                  tx_order_index_buy ++;
+
                   packet_data_cnt[ble_hd] = 0;
                   packet_head[0] = 0;
                   packet_head[1] = 0;
                   packet_head[2] = 0;
+
+//                  if (tx_order_index_buy >= TX_ORDER_NUM)
+//                    tx_order_index_buy = 0;
                 }
               }
             }
@@ -754,13 +775,19 @@ static void ble_process_buf_handler(void * p_context)
   NRF_LOG_INFO ("ble_process_buf_handler\r\n");
   app_timer_stop(m_ble_tx_timer_id);
   
-  while (find_tx_data < 10) {
-    if (packet_data_cnt[find_tx_data] >= 10) {
-      ble_hd = find_tx_data;
-      break;
-    }
-    find_tx_data++;
-  };
+  //while (find_tx_data < 10) {
+  //  if (packet_data_cnt[find_tx_data] >= 10) {
+  //    ble_hd = find_tx_data;
+  //    break;
+  //  }
+  //  find_tx_data++;
+  //};
+  
+//  ble_hd = packet_data_tx_order[tx_order_index_sell];
+//  tx_order_index_sell++;
+//  
+//  if (tx_order_index_sell >= TX_ORDER_NUM)
+//    tx_order_index_sell = 0;
 
   while (eat_i < 10) {
     err_code = app_fifo_get(&tx_fifo[ble_hd].tx_fifo_handle, &uart_tx_buffer);
