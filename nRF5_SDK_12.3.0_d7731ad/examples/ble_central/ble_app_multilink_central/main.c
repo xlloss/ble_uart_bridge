@@ -31,7 +31,7 @@
  * DISCLAIMED. IN NO EVENT SHALL NORDIC SEMICONDUCTOR ASA OR CONTRIBUTORS BE
  * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
  * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS Oalloc_tx_bufF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
@@ -66,8 +66,6 @@
 #include "ble_conn_state.h"
 #include "ble_nus_c.h"
 
-#define TEST_VERSION "Multilink BLE UART Example v.20\r\n"
-#define NEW_MAC_ADDRESS_TEST
 
 #define NRF_LOG_MODULE_NAME "APP"
 #include "nrf_log.h"
@@ -81,7 +79,8 @@
 #define NRF_BLE_MAX_MTU_SIZE      GATT_MTU_SIZE_DEFAULT                      /**< MTU size used in the softdevice enabling and to reply to a BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST event. */
 #endif
 
-#define CENTRAL_LINK_COUNT        8                                          /**< Number of central links used by the application. When changing this number remember to adjust the RAM settings*/
+//#define CENTRAL_LINK_COUNT        8                                          /**< Number of central links used by the application. When changing this number remember to adjust the RAM settings*/
+#define CENTRAL_LINK_COUNT        7                                          /**< Number of central links used by the application. When changing this number remember to adjust the RAM settings*/
 #define PERIPHERAL_LINK_COUNT     0                                          /**< Number of peripheral links used by the application. When changing this number remember to adjust the RAM settings*/
 #define TOTAL_LINK_COUNT          CENTRAL_LINK_COUNT + PERIPHERAL_LINK_COUNT /**< Total number of links used by the application. */
 
@@ -115,7 +114,13 @@ static const char m_target_periph_name[] = "Nordic_UART";
 #define PACKET_LEN 31
 #define PACKET_HEAD 3
 #define PACKET_DATA_LEN (PACKET_LEN - PACKET_HEAD)
-unsigned char data_buf[10][PACKET_LEN];
+
+
+#define BUFFER_SZ 512
+#define TEST_VERSION "Multilink BLE UART Example v.20\r\n"
+/* #define NEW_MAC_ADDRESS_TEST */
+
+unsigned char data_buf_cnt[CENTRAL_LINK_COUNT];
 int buf_index = 0;
 int buf_data_index = 0;
 int start_cnt = 0;
@@ -132,9 +137,10 @@ struct tx_packet_order {
   uint32_t packet_size;
 };
 
-struct uart_tx_fifo tx_fifo;
+struct uart_tx_fifo tx_fifo[CENTRAL_LINK_COUNT];
 struct tx_packet_order packet_order;
-uint8_t alloc_tx_buf[512] = {0};
+uint8_t alloc_tx_buf[CENTRAL_LINK_COUNT][BUFFER_SZ] = {0};
+static uint32_t packet_data_cnt[CENTRAL_LINK_COUNT] = {0};
 
 /** @brief Scan parameters requested for scanning and connection. */
 static const ble_gap_scan_params_t m_scan_params =
@@ -195,7 +201,6 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
 }
 
 #ifndef NEW_MAC_ADDRESS_TEST
-//#error Not define NEW_MAC_ADDRESS_TEST
 /**
  * @brief Parses advertisement data, providing length and location of the field in case
  *        matching data is found.
@@ -231,6 +236,7 @@ static uint32_t adv_report_parse(uint8_t type, uint8_array_t * p_advdata, uint8_
     }
     return NRF_ERROR_NOT_FOUND;
 }
+
 #endif
 
 /**@brief Function to start scanning.
@@ -260,10 +266,9 @@ static void scan_start(void)
 /**@snippet [Handling events from the ble_nus_c module] */
 static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt_t * p_ble_nus_evt)
 {
-    uint32_t err_code;
-    static uint32_t packet_data_cnt = 0;
-    static uint32_t packet_data_head0 = 0, packet_data_head1 = 0, packet_data_head2 = 0, packet_head[3] = {0};
-    static uint32_t packet_data_end0 = 0, packet_data_end1 = 0, packet_data_end2 = 0, packet_end[3] = {0};
+    uint32_t err_code, ble_hd;
+    static uint32_t packet_head[3] = {0};
+    static uint32_t packet_end[3] = {0};
 
     switch (p_ble_nus_evt->evt_type)
     {
@@ -277,6 +282,7 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
             break;
 
         case BLE_NUS_C_EVT_NUS_RX_EVT:
+            ble_hd = p_ble_nus_c->conn_handle;
 #ifdef DEBUG
             NRF_LOG_INFO("BLE_NUS_C_EVT_NUS_RX_EVT %d\r\n", p_ble_nus_c->conn_handle);
             NRF_LOG_INFO("DBG : data_len %d\r\n", p_ble_nus_evt->data_len);
@@ -285,37 +291,37 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 
             NRF_LOG_INFO("\r\n");
 #endif
-              //packet_order
+            //packet_order
             for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++) {
-              if (i + 2 < p_ble_nus_evt->data_len && packet_data_cnt == 0) {
+              if (i + 2 < p_ble_nus_evt->data_len && packet_data_cnt[ble_hd] == 0) {
                 packet_head[0] = (uint32_t)p_ble_nus_evt->p_data[i + 0];
                 packet_head[1] = (uint32_t)p_ble_nus_evt->p_data[i + 1];
                 packet_head[2] = (uint32_t)p_ble_nus_evt->p_data[i + 2];
               }
 
-              if (packet_head[0] == '$' && packet_head[1] == '$' && packet_head[2] == '$' && packet_data_cnt == 0) {
-                    err_code = app_fifo_put(&tx_fifo.tx_fifo_handle, (unsigned int)packet_head[0]);
-                    err_code = app_fifo_put(&tx_fifo.tx_fifo_handle, (unsigned int)packet_head[1]);
-                    err_code = app_fifo_put(&tx_fifo.tx_fifo_handle, (unsigned int)packet_head[2]);
-                    packet_data_cnt = 3;
+              if (packet_head[0] == '$' && packet_head[1] == '$' && packet_head[2] == '$' && packet_data_cnt[ble_hd] == 0) {
+                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, (unsigned int)packet_head[0]);
+                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, (unsigned int)packet_head[1]);
+                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, (unsigned int)packet_head[2]);
+                    packet_data_cnt[ble_hd] = 3;
                     i = i + 3;
-              } else if (packet_data_cnt >= 3) {
-                    err_code = app_fifo_put(&tx_fifo.tx_fifo_handle, 
+              } else if (packet_data_cnt[ble_hd] >= 3) {
+                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, 
                       (unsigned int)p_ble_nus_evt->p_data[i]);
                     
                     if (err_code != NRF_SUCCESS)
                       NRF_LOG_INFO("app_fifo_put fail\r\n");
                     
-                    packet_data_cnt = packet_data_cnt + 1;
+                    packet_data_cnt[ble_hd] = packet_data_cnt[ble_hd] + 1;
               }
 
-              if (i + 2 < p_ble_nus_evt->data_len && packet_data_cnt > 3) {
+              if (i + 2 < p_ble_nus_evt->data_len && packet_data_cnt[ble_hd] > 3) {
                 packet_end[0] = (uint32_t)p_ble_nus_evt->p_data[i + 0];
                 packet_end[1] = (uint32_t)p_ble_nus_evt->p_data[i + 1];
                 packet_end[2] = (uint32_t)p_ble_nus_evt->p_data[i + 2];
                 
                 if (packet_end[0] == '#' && packet_end[1] == '#' && packet_end[2] == '#') {
-                  packet_data_cnt = 0;
+                  packet_data_cnt[ble_hd] = 0;
                   packet_head[0] = 0;
                   packet_head[1] = 0;
                   packet_head[2] = 0;
@@ -441,7 +447,7 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
     const ble_gap_evt_adv_report_t * p_adv_report = &p_gap_evt->params.adv_report;
 
 #ifndef NEW_MAC_ADDRESS_TEST
-//#error Not NEW_MAC_ADDRESS_TEST
+
     //Initialize advertisement report for parsing
     adv_data.p_data = (uint8_t *)p_gap_evt->params.adv_report.data;
     adv_data.size   = p_gap_evt->params.adv_report.dlen;
@@ -740,18 +746,28 @@ static void power_manage(void)
 
 static void ble_process_buf_handler(void * p_context)
 {
-  int eat_i = 0;
+  int eat_i = 0, ble_hd = 0, find_tx_data = 0;
   unsigned char uart_tx_buffer;
   uint32_t err_code;
   UNUSED_PARAMETER(p_context);
   
   NRF_LOG_INFO ("ble_process_buf_handler\r\n");
   app_timer_stop(m_ble_tx_timer_id);
+  
+  while (find_tx_data < 10) {
+    if (packet_data_cnt[find_tx_data] >= 10) {
+      ble_hd = find_tx_data;
+      break;
+    }
+    find_tx_data++;
+  };
+
   while (eat_i < 10) {
-    err_code = app_fifo_get(&tx_fifo.tx_fifo_handle, &uart_tx_buffer);
-    NRF_LOG_INFO ("eat_i %d uart_tx_buffer -> %c\r\n", eat_i, uart_tx_buffer);
-    eat_i ++;
+    err_code = app_fifo_get(&tx_fifo[ble_hd].tx_fifo_handle, &uart_tx_buffer);
+    /* NRF_LOG_INFO ("eat_i %d uart_tx_buffer -> %c\r\n", eat_i, uart_tx_buffer); */
+    eat_i++;
     //while (app_uart_put( p_ble_nus_evt->p_data[i]) != NRF_SUCCESS)
+    while (app_uart_put(uart_tx_buffer) != NRF_SUCCESS);
   };
   app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
 
@@ -785,7 +801,7 @@ static void timers_init(void)
 int main(void)
 {
     ret_code_t err_code;
-
+    int i = 0;
     err_code = NRF_LOG_INIT(NULL);
     APP_ERROR_CHECK(err_code);
     NRF_LOG_INFO(TEST_VERSION);
@@ -800,11 +816,13 @@ int main(void)
     
     NRF_LOG_INFO("Multi Link Uart Bridge\r\n");
 
-    tx_fifo.tx_buf = &alloc_tx_buf[0];
-    tx_fifo.tx_buf_size = sizeof (alloc_tx_buf)/sizeof (alloc_tx_buf[0]);
-    NRF_LOG_INFO("tx_fifo.tx_buf_size %d\r\n", tx_fifo.tx_buf_size);
-    err_code = app_fifo_init(&tx_fifo.tx_fifo_handle, tx_fifo.tx_buf, tx_fifo.tx_buf_size);
-    APP_ERROR_CHECK(err_code);
+    for (i = 0; i < CENTRAL_LINK_COUNT; i++) {
+      tx_fifo[i].tx_buf = &alloc_tx_buf[i][0];
+      tx_fifo[i].tx_buf_size = BUFFER_SZ;
+      NRF_LOG_INFO("tx_fifo[%d].tx_buf_size %d\r\n", i, tx_fifo[i].tx_buf_size);
+      err_code = app_fifo_init(&tx_fifo[i].tx_fifo_handle, tx_fifo[i].tx_buf, tx_fifo[i].tx_buf_size);
+      APP_ERROR_CHECK(err_code);
+    }
 
     // Start scanning for peripherals and initiate connection to devices which
     // advertise.

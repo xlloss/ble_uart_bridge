@@ -658,16 +658,24 @@ static void power_manage(void)
  * @param[in] p_context  Pointer used for passing some arbitrary information (context) from the
  *                       app_start_timer() call to the timeout handler.
  */
+#define A_TEAM1 "$$$1aaaaaaaaaaaaaaa1"
+#define A_TEAM2 "1bbbbbbbbbbbbbbbbbb1"
+#define A_TEAM3 "1ccccccccccccccc1###"
+
+#define B_TEAM1 "$$$2aaaaaaaaaaaaaaa2"
+#define B_TEAM2 "2bbbbbbbbbbbbbbbbbb2"
+#define B_TEAM3 "2ccccccccccccccc2###"
+
+
 static void ble_tx_timeout_handler(void * p_context)
 {
 	uint32_t str_len = STR_LEN;
   uint32_t data_len;
   static uint8_t count = 0;
-  //uint8_t data_array[BLE_NUS_MAX_DATA_LEN] = {AUTO_TEST_DATA}, i = 0;
-  //uint8_t data_array[60] = {AUTO_TEST_DATA}, i = 0, j = 0;
-  uint8_t data_array1[20] = {"$$$aaaaaaaaaaaaaaaaa"};
-  uint8_t data_array2[20] = {"bbbbbbbbbbbbbbbbbbbb"};
-  uint8_t data_array3[20] = {"ccccccccccccccccc###"};
+
+  uint8_t data_array1[20] = {B_TEAM1};
+  uint8_t data_array2[20] = {B_TEAM2};
+  uint8_t data_array3[20] = {B_TEAM3};
   uint8_t i = 0, j = 0;
 #ifdef NUS_TX_AUTO_SEND
 	uint32_t err_code;
