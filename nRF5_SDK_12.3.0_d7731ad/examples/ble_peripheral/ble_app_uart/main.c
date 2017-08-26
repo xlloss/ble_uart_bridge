@@ -121,7 +121,7 @@ uint8_t mac_addr_cust[7][6] = {
 
 static ble_gap_addr_t new_mac_addr;
 
-#define TIMER_BLE_TX_INTERVAL      APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER)
+#define TIMER_BLE_TX_INTERVAL      APP_TIMER_TICKS(8000, APP_TIMER_PRESCALER)
 APP_TIMER_DEF(m_ble_tx_timer_id);
 
 #if 0
@@ -666,6 +666,22 @@ static void power_manage(void)
 #define B_TEAM2 "2bbbbbbbbbbbbbbbbbb2"
 #define B_TEAM3 "2ccccccccccccccc2###"
 
+#define C_TEAM1 "$$$3aaaaaaaaaaaaaaa3"
+#define C_TEAM2 "3bbbbbbbbbbbbbbbbbb3"
+#define C_TEAM3 "3ccccccccccccccc3###"
+
+#define D_TEAM1 "$$$4aaaaaaaaaaaaaaa4"
+#define D_TEAM2 "4bbbbbbbbbbbbbbbbbb4"
+#define D_TEAM3 "4ccccccccccccccc4###"
+
+#define E_TEAM1 "$$$5aaaaaaaaaaaaaaa5"
+#define E_TEAM2 "5bbbbbbbbbbbbbbbbbb5"
+#define E_TEAM3 "5ccccccccccccccc5###"
+
+
+#define TEST_TEAM1 D_TEAM1
+#define TEST_TEAM2 D_TEAM2
+#define TEST_TEAM3 D_TEAM3
 
 static void ble_tx_timeout_handler(void * p_context)
 {
@@ -673,9 +689,9 @@ static void ble_tx_timeout_handler(void * p_context)
   uint32_t data_len;
   static uint8_t count = 0;
 
-  uint8_t data_array1[20] = {B_TEAM1};
-  uint8_t data_array2[20] = {B_TEAM2};
-  uint8_t data_array3[20] = {B_TEAM3};
+  uint8_t data_array1[20] = {TEST_TEAM1};
+  uint8_t data_array2[20] = {TEST_TEAM2};
+  uint8_t data_array3[20] = {TEST_TEAM3};
   uint8_t i = 0, j = 0;
 #ifdef NUS_TX_AUTO_SEND
 	uint32_t err_code;
