@@ -120,7 +120,7 @@ static const char m_target_periph_name[] = "Nordic_UART";
 
 #define BUFFER_SZ 1024
 #define TEST_VERSION "Multilink BLE UART Example v.20\r\n"
-#define TX_ORDER_NUM 256
+#define TX_ORDER_NUM 1024
 /* #define NEW_MAC_ADDRESS_TEST */
 
 unsigned char data_buf_cnt[CENTRAL_LINK_COUNT];
@@ -146,7 +146,7 @@ uint8_t alloc_tx_buf[CENTRAL_LINK_COUNT][BUFFER_SZ] = {0};
 static uint32_t packet_data_cnt[CENTRAL_LINK_COUNT] = {0};
 uint8_t packet_data_tx_order[TX_ORDER_NUM] = {0};
 int tx_order_index_buy = 0;
-int tx_order_index_sell = 0;
+
 uint32_t reset_ble_rx_start = 0;
 uint32_t reset_ble_rx_stop = 0;
 uint32_t reset_ble_cont = 0;
@@ -296,130 +296,148 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 
         case BLE_NUS_C_EVT_NUS_RX_EVT:
             ble_hd = p_ble_nus_c->conn_handle;
-#ifdef DEBUG
-            NRF_LOG_INFO("BLE_NUS_C_EVT_NUS_RX_EVT %d\r\n", p_ble_nus_c->conn_handle);
-            NRF_LOG_INFO("DBG : data_len %d\r\n", p_ble_nus_evt->data_len);
-            for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++)
-              NRF_LOG_INFO("%c\r\n", p_ble_nus_evt->p_data[i]);
-
-            NRF_LOG_INFO("\r\n");
-#endif
-            //packet_order
             for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++) {
-              if (i + 2 < p_ble_nus_evt->data_len && packet_data_cnt[ble_hd] == 0) {
-                packet_head[ble_hd][0] = (uint32_t)p_ble_nus_evt->p_data[i + 0];
-                packet_head[ble_hd][1] = (uint32_t)p_ble_nus_evt->p_data[i + 1];
-                packet_head[ble_hd][2] = (uint32_t)p_ble_nus_evt->p_data[i + 2];
-              }
-
-              if (packet_head[ble_hd][0] == '$' && packet_head[ble_hd][1] == '$' && packet_head[ble_hd][2] == '$' && packet_data_cnt[ble_hd] == 0) {
-                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, packet_head[ble_hd][0]);
-                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, packet_head[ble_hd][1]);
-                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, packet_head[ble_hd][2]);
-                    if (err_code != NRF_SUCCESS) {
-                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
-                      NRF_LOG_INFO("app_fifo_put fail ble_hd %d\r\n", ble_hd);
-                      packet_data_cnt[ble_hd] = 0;
-                      packet_head[ble_hd][0] = 0;
-                      packet_head[ble_hd][1] = 0;
-                      packet_head[ble_hd][2] = 0;
-                      goto err_exit;
-                    }
-                    packet_data_cnt[ble_hd] = 3;
-                    i = i + 2;
-              } else if (packet_data_cnt[ble_hd] >= 3) {
-                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, p_ble_nus_evt->p_data[i]);
-                    if (err_code != NRF_SUCCESS) {
-                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
-                      NRF_LOG_INFO("app_fifo_put fail ble_hd %d\r\n", ble_hd);
-                      packet_data_cnt[ble_hd] = 0;
-                      packet_head[ble_hd][0] = 0;
-                      packet_head[ble_hd][1] = 0;
-                      packet_head[ble_hd][2] = 0;
-                      goto err_exit;
-                    }
-                    
-                    packet_data_cnt[ble_hd] = packet_data_cnt[ble_hd] + 1;
-              }
-
-              if (i + 2 < p_ble_nus_evt->data_len && packet_data_cnt[ble_hd] > 3) {
-                packet_end[ble_hd][0] = p_ble_nus_evt->p_data[i + 0];
-                packet_end[ble_hd][1] = p_ble_nus_evt->p_data[i + 1];
-                packet_end[ble_hd][2] = p_ble_nus_evt->p_data[i + 2];
-                
-                if (packet_end[ble_hd][0] == '#' && packet_end[ble_hd][1] == '#' && packet_end[ble_hd][2] == '#') {
-                  
-                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, '#');
-                    if (err_code != NRF_SUCCESS) {
-                      NRF_LOG_INFO("app_fifo_put fail ble_hd %d\r\n", ble_hd);
-                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
-                      packet_data_cnt[ble_hd] = 0;
-                      packet_head[ble_hd][0] = 0;
-                      packet_head[ble_hd][1] = 0;
-                      packet_head[ble_hd][2] = 0;
-                      goto err_exit;
-                    }
-
-                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, '#');
-                    if (err_code != NRF_SUCCESS) {
-                      NRF_LOG_INFO("app_fifo_put fail ble_hd %d\r\n", ble_hd);
-                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
-                      packet_data_cnt[ble_hd] = 0;
-                      packet_head[ble_hd][0] = 0;
-                      packet_head[ble_hd][1] = 0;
-                      packet_head[ble_hd][2] = 0;
-                      goto err_exit;
-                    }
-
-                    packet_data_cnt[ble_hd] = packet_data_cnt[ble_hd] + 2;
-
-                    NRF_LOG_INFO("!!! ble_hd %d!!!\r\n",  ble_hd);                    
-
-                    err_code = app_fifo_put(&packet_data_tx_order_hd, ble_hd);
-                    if (err_code != NRF_SUCCESS) {
-                      NRF_LOG_INFO ("packet_data_tx_order_hd FIFO put FAIL\r\n");
-                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
-                      packet_data_cnt[ble_hd] = 0;
-                      packet_head[ble_hd][0] = 0;
-                      packet_head[ble_hd][1] = 0;
-                      packet_head[ble_hd][2] = 0;
-                      goto err_exit;
-                    }
-
-                    err_code = app_fifo_put(&packet_data_tx_order_hd, ble_hd);
-                    if (err_code != NRF_SUCCESS) {
-                      NRF_LOG_INFO ("packet_data_tx_order_hd FIFO put FAIL\r\n");
-                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
-                      packet_data_cnt[ble_hd] = 0;
-                      packet_head[ble_hd][0] = 0;
-                      packet_head[ble_hd][1] = 0;
-                      packet_head[ble_hd][2] = 0;
-                      goto err_exit;
-                    }
-
-                    err_code = app_fifo_put(&packet_data_tx_order_hd, ble_hd);
-                    if (err_code != NRF_SUCCESS) {
-                      NRF_LOG_INFO ("packet_data_tx_order_hd FIFO put FAIL\r\n");
-                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
-                      packet_data_cnt[ble_hd] = 0;
-                      packet_head[ble_hd][0] = 0;
-                      packet_head[ble_hd][1] = 0;
-                      packet_head[ble_hd][2] = 0;
-                      goto err_exit;
-                    }
-
-                    packet_data_cnt[ble_hd] = 0;
-                    packet_head[ble_hd][0] = 0;
-                    packet_head[ble_hd][1] = 0;
-                    packet_head[ble_hd][2] = 0;
-
-                    if (tx_order_index_buy >= TX_ORDER_NUM) {
-                      tx_order_index_buy = 0;
-                    }
-                }
+              err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, p_ble_nus_evt->p_data[i]);
+              if (err_code != NRF_SUCCESS) {
+                NRF_LOG_INFO ("tx_fifo[%d].tx_fifo_handle app_fifo_put fail: ble_hd %d\r\n", ble_hd, ble_hd);
               }
             }
-err_exit:
+
+            packet_data_cnt[ble_hd] = packet_data_cnt[ble_hd] + 1;
+
+            err_code = app_fifo_put(&packet_data_tx_order_hd, ble_hd);
+            if (err_code != NRF_SUCCESS) {
+              NRF_LOG_INFO ("packet_data_tx_order_hd app_fifo_put fail: ble_hd %d\r\n", ble_hd);
+            }
+            NRF_LOG_INFO ("ble_hd %d\r\n", ble_hd);
+//#ifdef DEBUG
+//            NRF_LOG_INFO("BLE_NUS_C_EVT_NUS_RX_EVT %d\r\n", p_ble_nus_c->conn_handle);
+//            NRF_LOG_INFO("DBG : data_len %d\r\n", p_ble_nus_evt->data_len);
+//            for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++)
+//              NRF_LOG_INFO("%c\r\n", p_ble_nus_evt->p_data[i]);
+//
+//            NRF_LOG_INFO("\r\n");
+//#endif
+//            //packet_order
+//            for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++) {
+//              if (i + 2 < p_ble_nus_evt->data_len && packet_data_cnt[ble_hd] == 0) {
+//                packet_head[ble_hd][0] = p_ble_nus_evt->p_data[i + 0];
+//                packet_head[ble_hd][1] = p_ble_nus_evt->p_data[i + 1];
+//                packet_head[ble_hd][2] = p_ble_nus_evt->p_data[i + 2];
+//              }
+//
+//              if (packet_head[ble_hd][0] == '$' && packet_head[ble_hd][1] == '$' && packet_head[ble_hd][2] == '$' && packet_data_cnt[ble_hd] == 0) {
+//                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, packet_head[ble_hd][0]);
+//                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, packet_head[ble_hd][1]);
+//                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, packet_head[ble_hd][2]);
+//                    if (err_code != NRF_SUCCESS) {
+//                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
+//                      NRF_LOG_INFO("app_fifo_put fail ble_hd %d\r\n", ble_hd);
+//                      packet_data_cnt[ble_hd] = 0;
+//                      packet_head[ble_hd][0] = 0;
+//                      packet_head[ble_hd][1] = 0;
+//                      packet_head[ble_hd][2] = 0;
+//                      goto err_exit;
+//                    }
+//                    packet_data_cnt[ble_hd] = 3;
+//                    i = i + 2;
+//                    continue;
+//              } else if (packet_data_cnt[ble_hd] >= 3) {
+//                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, p_ble_nus_evt->p_data[i]);
+//                    if (err_code != NRF_SUCCESS) {
+//                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
+//                      NRF_LOG_INFO("app_fifo_put fail ble_hd %d\r\n", ble_hd);
+//                      packet_data_cnt[ble_hd] = 0;
+//                      packet_head[ble_hd][0] = 0;
+//                      packet_head[ble_hd][1] = 0;
+//                      packet_head[ble_hd][2] = 0;
+//                      goto err_exit;
+//                    }
+//                    
+//                    packet_data_cnt[ble_hd] = packet_data_cnt[ble_hd] + 1;
+//              }
+//
+//              if (i + 2 < p_ble_nus_evt->data_len && packet_data_cnt[ble_hd] > 3) {
+//                packet_end[ble_hd][0] = p_ble_nus_evt->p_data[i + 0];
+//                packet_end[ble_hd][1] = p_ble_nus_evt->p_data[i + 1];
+//                packet_end[ble_hd][2] = p_ble_nus_evt->p_data[i + 2];
+//                
+//                if (packet_end[ble_hd][0] == '#' && packet_end[ble_hd][1] == '#' && packet_end[ble_hd][2] == '#') {
+//                  
+//                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, '#');
+//                    if (err_code != NRF_SUCCESS) {
+//                      NRF_LOG_INFO("app_fifo_put fail ble_hd %d\r\n", ble_hd);
+//                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
+//                      packet_data_cnt[ble_hd] = 0;
+//                      packet_head[ble_hd][0] = 0;
+//                      packet_head[ble_hd][1] = 0;
+//                      packet_head[ble_hd][2] = 0;
+//                      goto err_exit;
+//                    }
+//
+//                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, '#');
+//                    if (err_code != NRF_SUCCESS) {
+//                      NRF_LOG_INFO("app_fifo_put fail ble_hd %d\r\n", ble_hd);
+//                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
+//                      packet_data_cnt[ble_hd] = 0;
+//                      packet_head[ble_hd][0] = 0;
+//                      packet_head[ble_hd][1] = 0;
+//                      packet_head[ble_hd][2] = 0;
+//                      goto err_exit;
+//                    }
+//
+//                    packet_data_cnt[ble_hd] = packet_data_cnt[ble_hd] + 2;
+//
+//                    NRF_LOG_INFO("!!! ble_hd %d!!!\r\n",  ble_hd);                    
+//
+//                    err_code = app_fifo_put(&packet_data_tx_order_hd, ble_hd);
+//                    if (err_code != NRF_SUCCESS) {
+//                      NRF_LOG_INFO ("packet_data_tx_order_hd FIFO put FAIL\r\n");
+//                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
+//                      packet_data_cnt[ble_hd] = 0;
+//                      packet_head[ble_hd][0] = 0;
+//                      packet_head[ble_hd][1] = 0;
+//                      packet_head[ble_hd][2] = 0;
+//                      goto err_exit;
+//                    }
+//
+//                    err_code = app_fifo_put(&packet_data_tx_order_hd, ble_hd);
+//                    if (err_code != NRF_SUCCESS) {
+//                      NRF_LOG_INFO ("packet_data_tx_order_hd FIFO put FAIL\r\n");
+//                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
+//                      packet_data_cnt[ble_hd] = 0;
+//                      packet_head[ble_hd][0] = 0;
+//                      packet_head[ble_hd][1] = 0;
+//                      packet_head[ble_hd][2] = 0;
+//                      goto err_exit;
+//                    }
+//
+//                    err_code = app_fifo_put(&packet_data_tx_order_hd, ble_hd);
+//                    if (err_code != NRF_SUCCESS) {
+//                      NRF_LOG_INFO ("packet_data_tx_order_hd FIFO put FAIL\r\n");
+//                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
+//                      packet_data_cnt[ble_hd] = 0;
+//                      packet_head[ble_hd][0] = 0;
+//                      packet_head[ble_hd][1] = 0;
+//                      packet_head[ble_hd][2] = 0;
+//                      goto err_exit;
+//                    }
+//
+//                    packet_data_cnt[ble_hd] = 0;
+//                    packet_head[ble_hd][0] = 0;
+//                    packet_head[ble_hd][1] = 0;
+//                    packet_head[ble_hd][2] = 0;
+//
+//                    if (tx_order_index_buy >= TX_ORDER_NUM) {
+//                      tx_order_index_buy = 0;
+//                    }
+//                    
+//                    i = i + 2;
+//                    continue;
+//                }
+//              }
+//            }
+//err_exit:
             break;
 
         case BLE_NUS_C_EVT_DISCONNECTED:
@@ -838,49 +856,62 @@ static void power_manage(void)
     APP_ERROR_CHECK(err_code);
 }
 
+int my_ble_hd = 0;
 static void ble_process_buf_handler(void * p_context)
 {
-  int eat_i = 0;
+  int eat_i = 0, get_out = 0, i = 0;
   unsigned char uart_tx_buffer, ble_hd;
-  uint32_t err_code;
+  uint32_t err_code = NRF_SUCCESS;
   UNUSED_PARAMETER(p_context);
   
   //NRF_LOG_INFO ("ble_process_buf_handler\r\n");
   app_timer_stop(m_ble_tx_timer_id);
 
-  reset_ble_cont++;
-  if (reset_ble_cont > 100) {
-    reset_ble_cont = 0;
-    app_uart_flush();
-    app_fifo_flush(&packet_data_tx_order_hd);
+  if (my_ble_hd >= 7)
+    my_ble_hd = 0;
+  
+  NRF_LOG_INFO ("ble_process_buf_handler my_ble_hd %d %d\r\n", my_ble_hd, packet_data_cnt[my_ble_hd]);
+  if (packet_data_cnt[my_ble_hd] < 3) {
+    app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
+    my_ble_hd++;
+    return;
   }
 
-  err_code = app_fifo_get(&packet_data_tx_order_hd, &ble_hd);
-  if (err_code != NRF_SUCCESS) {
-    NRF_LOG_INFO ("packet_data_tx_order_hd FIFO get fail\r\n");
-    goto exit;
+
+//  err_code = app_fifo_get(&packet_data_tx_order_hd, &ble_hd);
+//  if (err_code != NRF_SUCCESS) {
+//    NRF_LOG_INFO ("packet_data_tx_order_hd FIFO get fail\r\n");
+//    goto exit;
+//  }
+
+  
+
+  if (packet_data_cnt[my_ble_hd] < 3) {
+    app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
+    return;
   }
-  NRF_LOG_INFO ("ble_hd %d\r\n", ble_hd);
-  if (ble_hd == 0xFF)
-    app_uart_flush();
 
-  while (eat_i < 20 && ble_hd != 0xFF) {
-    err_code = app_fifo_get(&tx_fifo[ble_hd].tx_fifo_handle, &uart_tx_buffer);
-//    if (err_coed != 0x00)
-//      NRF_LOG_INFO ("eat -> ble_hd 0x%x\r\n", ble_hd);
+  packet_data_cnt[my_ble_hd] = 0;
 
-    eat_i++;
+  while (1) {
+    NRF_LOG_INFO ("while loop\r\n");
+    err_code = app_fifo_get(&tx_fifo[my_ble_hd].tx_fifo_handle, &uart_tx_buffer);
+    if (err_code != NRF_SUCCESS) {
+      break;
+    }
+
+    if (uart_tx_buffer == '#')
+      get_out++;
+  
     while (app_uart_put(uart_tx_buffer) != NRF_SUCCESS);
-    nrf_delay_ms(5);
+    
+    if (get_out >= 3)
+      break;
   };
-
-  if (ble_hd != 0xFF)
-    tx_order_index_sell++;
-
-  if (tx_order_index_sell >= TX_ORDER_NUM)
-    tx_order_index_sell = 0;
-
+  
+  my_ble_hd++;
 exit:
+  nrf_delay_ms(10);
   app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
 }
 
@@ -933,6 +964,7 @@ int main(void)
       NRF_LOG_INFO("tx_fifo[%d].tx_buf_size %d\r\n", i, tx_fifo[i].tx_buf_size);
       err_code = app_fifo_init(&tx_fifo[i].tx_fifo_handle, tx_fifo[i].tx_buf, tx_fifo[i].tx_buf_size);
       APP_ERROR_CHECK(err_code);
+      packet_data_cnt[i] = 0;
     }
     
     //for (i = 0; i < TX_ORDER_NUM; i++) {

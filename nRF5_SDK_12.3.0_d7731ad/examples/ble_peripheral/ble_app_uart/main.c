@@ -124,11 +124,11 @@ static ble_gap_addr_t new_mac_addr;
 #define TIMER_BLE_TX_INTERVAL      APP_TIMER_TICKS(8000, APP_TIMER_PRESCALER)
 APP_TIMER_DEF(m_ble_tx_timer_id);
 
-#if 0
-  #define UART_TX_AUTO_SEND
-#else
-  #define NUS_TX_AUTO_SEND
-#endif
+//#if 0
+//  #define UART_TX_AUTO_SEND
+//#else
+//  #define NUS_TX_AUTO_SEND
+//#endif
 
 #define AUTO_TEST_DATA "$$$0123456789abcdefghijk,./';\][-vcxzasdfghr@#$tgsdcvf###"
 #define STR_LEN 20
@@ -339,7 +339,9 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
             err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
             APP_ERROR_CHECK(err_code);
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+#ifdef NUS_TX_AUTO_SEND
             application_timers_start();
+#endif
             break; // BLE_GAP_EVT_CONNECTED
 
         case BLE_GAP_EVT_DISCONNECTED:
@@ -693,58 +695,43 @@ static void ble_tx_timeout_handler(void * p_context)
   uint8_t data_array2[20] = {TEST_TEAM2};
   uint8_t data_array3[20] = {TEST_TEAM3};
   uint8_t i = 0, j = 0;
+
 #ifdef NUS_TX_AUTO_SEND
 	uint32_t err_code;
-#endif
+
 
 	UNUSED_PARAMETER(p_context);
 	NRF_LOG_INFO("\r\nble_tx_timeout_handler\r\n");
-  //app_timer_stop(m_ble_tx_timer_id);
 
-//#ifdef NUS_TX_AUTO_SEND
-// 
-//  data_len = 20;
-//  
   if (count == 0) {
-//    for (i = 0; i < data_len; i = i + 1) {
-//        //NRF_LOG_INFO("data_array1[%d] %c\r\n", i, data_array1[i]);
         err_code = ble_nus_string_send(&m_nus, &data_array1[0], str_len);
         if (err_code != NRF_ERROR_INVALID_STATE) {
             APP_ERROR_CHECK(err_code);
         }
-//     }
      count++;
   } else if (count == 1) {
-//    for (i = 0; i < data_len; i = i + 1) {
-//        //NRF_LOG_INFO("data_array2[%d] %c\r\n", i, data_array2[i]);
         err_code = ble_nus_string_send(&m_nus, &data_array2[0], str_len);
         if (err_code != NRF_ERROR_INVALID_STATE) {
             APP_ERROR_CHECK(err_code);
         }
-//    }
     count++;
   } else if (count == 2) {
-//    for (i = 0; i < data_len; i = i + 1) {
-      //NRF_LOG_INFO("data_array3[%d] %c\r\n", i, data_array3[i]);
       err_code = ble_nus_string_send(&m_nus, &data_array3[0], str_len);
       if (err_code != NRF_ERROR_INVALID_STATE) {
           APP_ERROR_CHECK(err_code);
       }
-//    }
     count++;
   }
    
   if (count == 3)
       count = 0;
+#endif
 
-  //app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
-//#endif
-//
-//#ifdef UART_TX_AUTO_SEND
-//  for (i = 0; i < str_len; i++) {
-//		app_uart_put(data_array[i]);
-//	}
-//#endif
+#ifdef UART_TX_AUTO_SEND
+  for (i = 0; i < str_len; i++) {
+		app_uart_put(data_array[i]);
+	}
+#endif
 
 }
 
@@ -788,15 +775,15 @@ int main(void)
 
     // Initialize.
     timers_init();
-//    uart_init();
-//    buttons_leds_init(&erase_bonds);
+    uart_init();
+    buttons_leds_init(&erase_bonds);
     ble_stack_init();
     gap_params_init();
     services_init();
     advertising_init();
     conn_params_init();
     NRF_LOG_INFO("\r\nUART Start!\r\n");
-//    printf("\r\nUART Start!\r\n");
+    printf("\r\nUART Start!\r\n");
     err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
     APP_ERROR_CHECK(err_code);
 #if 0
