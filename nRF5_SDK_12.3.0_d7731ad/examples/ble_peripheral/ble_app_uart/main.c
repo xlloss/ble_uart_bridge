@@ -108,7 +108,28 @@ static uint16_t                         m_conn_handle = BLE_CONN_HANDLE_INVALID;
 
 static ble_uuid_t                       m_adv_uuids[] = {{BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}};  /**< Universally unique service identifier. */
 
-#define MAC_ADDR_ITEM 0
+#define A_TEAM1 "$$$1aaaaaaaaaaaaaaa1"
+#define A_TEAM2 "1bbbbbbbbbbbbbbbbbb1"
+#define A_TEAM3 "1ccccccccccccccc1###"
+
+#define B_TEAM1 "$$$2aaaaaaaaaaaaaaa2"
+#define B_TEAM2 "2bbbbbbbbbbbbbbbbbb2"
+#define B_TEAM3 "2ccccccccccccccc2###"
+
+#define C_TEAM1 "$$$3aaaaaaaaaaaaaaa3"
+#define C_TEAM2 "3bbbbbbbbbbbbbbbbbb3"
+#define C_TEAM3 "3ccccccccccccccc3###"
+
+#define D_TEAM1 "$$$4aaaaaaaaaaaaaaa4"
+#define D_TEAM2 "4bbbbbbbbbbbbbbbbbb4"
+#define D_TEAM3 "4ccccccccccccccc4###"
+
+#define E_TEAM1 "$$$5aaaaaaaaaaaaaaa5"
+#define E_TEAM2 "5bbbbbbbbbbbbbbbbbb5"
+#define E_TEAM3 "5ccccccccccccccc5###"
+
+
+
 uint8_t mac_addr_cust[7][6] = {
       {0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
       {0x11, 0x11, 0x22, 0x33, 0x44, 0x55},
@@ -119,6 +140,12 @@ uint8_t mac_addr_cust[7][6] = {
       {0x66, 0x11, 0x22, 0x33, 0x44, 0x55}};
 
 
+#define MAC_ADDR_ITEM 0
+#define TEST_TEAM1 D_TEAM1
+#define TEST_TEAM2 D_TEAM2
+#define TEST_TEAM3 D_TEAM3
+
+
 static ble_gap_addr_t new_mac_addr;
 
 #define TIMER_BLE_TX_INTERVAL      APP_TIMER_TICKS(8000, APP_TIMER_PRESCALER)
@@ -127,7 +154,7 @@ APP_TIMER_DEF(m_ble_tx_timer_id);
 //#if 0
 //  #define UART_TX_AUTO_SEND
 //#else
-//  #define NUS_TX_AUTO_SEND
+  #define NUS_TX_AUTO_SEND
 //#endif
 
 #define AUTO_TEST_DATA "$$$0123456789abcdefghijk,./';\][-vcxzasdfghr@#$tgsdcvf###"
@@ -660,30 +687,6 @@ static void power_manage(void)
  * @param[in] p_context  Pointer used for passing some arbitrary information (context) from the
  *                       app_start_timer() call to the timeout handler.
  */
-#define A_TEAM1 "$$$1aaaaaaaaaaaaaaa1"
-#define A_TEAM2 "1bbbbbbbbbbbbbbbbbb1"
-#define A_TEAM3 "1ccccccccccccccc1###"
-
-#define B_TEAM1 "$$$2aaaaaaaaaaaaaaa2"
-#define B_TEAM2 "2bbbbbbbbbbbbbbbbbb2"
-#define B_TEAM3 "2ccccccccccccccc2###"
-
-#define C_TEAM1 "$$$3aaaaaaaaaaaaaaa3"
-#define C_TEAM2 "3bbbbbbbbbbbbbbbbbb3"
-#define C_TEAM3 "3ccccccccccccccc3###"
-
-#define D_TEAM1 "$$$4aaaaaaaaaaaaaaa4"
-#define D_TEAM2 "4bbbbbbbbbbbbbbbbbb4"
-#define D_TEAM3 "4ccccccccccccccc4###"
-
-#define E_TEAM1 "$$$5aaaaaaaaaaaaaaa5"
-#define E_TEAM2 "5bbbbbbbbbbbbbbbbbb5"
-#define E_TEAM3 "5ccccccccccccccc5###"
-
-
-#define TEST_TEAM1 D_TEAM1
-#define TEST_TEAM2 D_TEAM2
-#define TEST_TEAM3 D_TEAM3
 
 static void ble_tx_timeout_handler(void * p_context)
 {
@@ -792,10 +795,10 @@ int main(void)
     // Enter main loop.
     for (;;)
     {
-        if (NRF_LOG_PROCESS() == false)
-        {
-			power_manage();
-		}
+      if (NRF_LOG_PROCESS() == false)
+      {
+        power_manage();
+      }
     }
 }
 
