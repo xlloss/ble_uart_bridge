@@ -200,6 +200,7 @@ static ble_db_discovery_t       m_ble_db_discovery[TOTAL_LINK_COUNT];           
 struct customer_mac_addr {
   const ble_gap_addr_t m_target_periph_addr;
   uint8_t connected;
+  int conn_handle;
 };
 
 
@@ -211,6 +212,7 @@ struct customer_mac_addr cust_mac_addr[CENTRAL_LINK_COUNT] = {
       .addr      = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
     },
     .connected = 0,
+    .conn_handle = -1,
   },
   
   
@@ -221,6 +223,7 @@ struct customer_mac_addr cust_mac_addr[CENTRAL_LINK_COUNT] = {
       .addr      = {0x11, 0x11, 0x22, 0x33, 0x44, 0x55},
     },
     .connected = 0,
+    .conn_handle = -1,
   },
   
   /* 2 iteam */
@@ -230,6 +233,7 @@ struct customer_mac_addr cust_mac_addr[CENTRAL_LINK_COUNT] = {
       .addr      = {0x22, 0x11, 0x22, 0x33, 0x44, 0x55},     
     },
     .connected = 0,
+    .conn_handle = -1,
   },
 
   /* 3 iteam */
@@ -239,6 +243,7 @@ struct customer_mac_addr cust_mac_addr[CENTRAL_LINK_COUNT] = {
       .addr      = {0x33, 0x11, 0x22, 0x33, 0x44, 0x55},     
     },
     .connected = 0,
+    .conn_handle = -1,
   },
 
   /* 4 iteam */
@@ -248,6 +253,7 @@ struct customer_mac_addr cust_mac_addr[CENTRAL_LINK_COUNT] = {
       .addr      = {0x44, 0x11, 0x22, 0x33, 0x44, 0x55},     
     },
     .connected = 0,
+    .conn_handle = -1,
   },
 
   /* 5 iteam */  
@@ -257,6 +263,7 @@ struct customer_mac_addr cust_mac_addr[CENTRAL_LINK_COUNT] = {
       .addr      = {0x55, 0x11, 0x22, 0x33, 0x44, 0x55},
     },
     .connected = 0,
+    .conn_handle = -1,
   },
   
   /* 6 iteam */
@@ -266,55 +273,11 @@ struct customer_mac_addr cust_mac_addr[CENTRAL_LINK_COUNT] = {
       .addr      = {0x66, 0x11, 0x22, 0x33, 0x44, 0x55},     
     },
     .connected = 0,
+    .conn_handle = -1,
   },
   
 };
 
-//static const ble_gap_addr_t m_target_periph_addr[CENTRAL_LINK_COUNT] =
-//{
-//  /* 0 iteam */
-//  {
-//    .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
-//    .addr      = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
-//  }
-//  
-//  /* 1 iteam */
-//  {
-//    .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
-//    .addr      = {0x11, 0x11, 0x22, 0x33, 0x44, 0x55}
-//  }
-//
-//  /* 2 iteam */
-//  {
-//    .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
-//    .addr      = {0x22, 0x11, 0x22, 0x33, 0x44, 0x55}
-//  }
-//
-//  /* 3 iteam */
-//  {
-//    .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
-//    .addr      = {0x33, 0x11, 0x22, 0x33, 0x44, 0x55}
-//  }
-//
-//  /* 4 iteam */
-//  {
-//    .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
-//    .addr      = {0x44, 0x11, 0x22, 0x33, 0x44, 0x55}
-//  }
-//
-//  /* 5 iteam */
-//  {
-//    .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
-//    .addr      = {0x55, 0x11, 0x22, 0x33, 0x44, 0x55}
-//  }
-//
-//  /* 6 iteam */
-//  {
-//    .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
-//    .addr      = {0x66, 0x11, 0x22, 0x33, 0x44, 0x55}
-//  }
-//  
-//};
 #endif
 
 /**@brief Function to handle asserts in the SoftDevice.
@@ -430,134 +393,6 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
               NRF_LOG_INFO ("packet_data_tx_order_hd app_fifo_put fail: ble_hd %d\r\n", ble_hd);
             }
             NRF_LOG_INFO ("ble_hd %d\r\n", ble_hd);
-//#ifdef DEBUG
-//            NRF_LOG_INFO("BLE_NUS_C_EVT_NUS_RX_EVT %d\r\n", p_ble_nus_c->conn_handle);
-//            NRF_LOG_INFO("DBG : data_len %d\r\n", p_ble_nus_evt->data_len);
-//            for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++)
-//              NRF_LOG_INFO("%c\r\n", p_ble_nus_evt->p_data[i]);
-//
-//            NRF_LOG_INFO("\r\n");
-//#endif
-//            //packet_order
-//            for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++) {
-//              if (i + 2 < p_ble_nus_evt->data_len && packet_data_cnt[ble_hd] == 0) {
-//                packet_head[ble_hd][0] = p_ble_nus_evt->p_data[i + 0];
-//                packet_head[ble_hd][1] = p_ble_nus_evt->p_data[i + 1];
-//                packet_head[ble_hd][2] = p_ble_nus_evt->p_data[i + 2];
-//              }
-//
-//              if (packet_head[ble_hd][0] == '$' && packet_head[ble_hd][1] == '$' && packet_head[ble_hd][2] == '$' && packet_data_cnt[ble_hd] == 0) {
-//                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, packet_head[ble_hd][0]);
-//                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, packet_head[ble_hd][1]);
-//                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, packet_head[ble_hd][2]);
-//                    if (err_code != NRF_SUCCESS) {
-//                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
-//                      NRF_LOG_INFO("app_fifo_put fail ble_hd %d\r\n", ble_hd);
-//                      packet_data_cnt[ble_hd] = 0;
-//                      packet_head[ble_hd][0] = 0;
-//                      packet_head[ble_hd][1] = 0;
-//                      packet_head[ble_hd][2] = 0;
-//                      goto err_exit;
-//                    }
-//                    packet_data_cnt[ble_hd] = 3;
-//                    i = i + 2;
-//                    continue;
-//              } else if (packet_data_cnt[ble_hd] >= 3) {
-//                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, p_ble_nus_evt->p_data[i]);
-//                    if (err_code != NRF_SUCCESS) {
-//                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
-//                      NRF_LOG_INFO("app_fifo_put fail ble_hd %d\r\n", ble_hd);
-//                      packet_data_cnt[ble_hd] = 0;
-//                      packet_head[ble_hd][0] = 0;
-//                      packet_head[ble_hd][1] = 0;
-//                      packet_head[ble_hd][2] = 0;
-//                      goto err_exit;
-//                    }
-//                    
-//                    packet_data_cnt[ble_hd] = packet_data_cnt[ble_hd] + 1;
-//              }
-//
-//              if (i + 2 < p_ble_nus_evt->data_len && packet_data_cnt[ble_hd] > 3) {
-//                packet_end[ble_hd][0] = p_ble_nus_evt->p_data[i + 0];
-//                packet_end[ble_hd][1] = p_ble_nus_evt->p_data[i + 1];
-//                packet_end[ble_hd][2] = p_ble_nus_evt->p_data[i + 2];
-//                
-//                if (packet_end[ble_hd][0] == '#' && packet_end[ble_hd][1] == '#' && packet_end[ble_hd][2] == '#') {
-//                  
-//                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, '#');
-//                    if (err_code != NRF_SUCCESS) {
-//                      NRF_LOG_INFO("app_fifo_put fail ble_hd %d\r\n", ble_hd);
-//                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
-//                      packet_data_cnt[ble_hd] = 0;
-//                      packet_head[ble_hd][0] = 0;
-//                      packet_head[ble_hd][1] = 0;
-//                      packet_head[ble_hd][2] = 0;
-//                      goto err_exit;
-//                    }
-//
-//                    err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, '#');
-//                    if (err_code != NRF_SUCCESS) {
-//                      NRF_LOG_INFO("app_fifo_put fail ble_hd %d\r\n", ble_hd);
-//                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
-//                      packet_data_cnt[ble_hd] = 0;
-//                      packet_head[ble_hd][0] = 0;
-//                      packet_head[ble_hd][1] = 0;
-//                      packet_head[ble_hd][2] = 0;
-//                      goto err_exit;
-//                    }
-//
-//                    packet_data_cnt[ble_hd] = packet_data_cnt[ble_hd] + 2;
-//
-//                    NRF_LOG_INFO("!!! ble_hd %d!!!\r\n",  ble_hd);                    
-//
-//                    err_code = app_fifo_put(&packet_data_tx_order_hd, ble_hd);
-//                    if (err_code != NRF_SUCCESS) {
-//                      NRF_LOG_INFO ("packet_data_tx_order_hd FIFO put FAIL\r\n");
-//                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
-//                      packet_data_cnt[ble_hd] = 0;
-//                      packet_head[ble_hd][0] = 0;
-//                      packet_head[ble_hd][1] = 0;
-//                      packet_head[ble_hd][2] = 0;
-//                      goto err_exit;
-//                    }
-//
-//                    err_code = app_fifo_put(&packet_data_tx_order_hd, ble_hd);
-//                    if (err_code != NRF_SUCCESS) {
-//                      NRF_LOG_INFO ("packet_data_tx_order_hd FIFO put FAIL\r\n");
-//                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
-//                      packet_data_cnt[ble_hd] = 0;
-//                      packet_head[ble_hd][0] = 0;
-//                      packet_head[ble_hd][1] = 0;
-//                      packet_head[ble_hd][2] = 0;
-//                      goto err_exit;
-//                    }
-//
-//                    err_code = app_fifo_put(&packet_data_tx_order_hd, ble_hd);
-//                    if (err_code != NRF_SUCCESS) {
-//                      NRF_LOG_INFO ("packet_data_tx_order_hd FIFO put FAIL\r\n");
-//                      app_fifo_flush(&tx_fifo[ble_hd].tx_fifo_handle);
-//                      packet_data_cnt[ble_hd] = 0;
-//                      packet_head[ble_hd][0] = 0;
-//                      packet_head[ble_hd][1] = 0;
-//                      packet_head[ble_hd][2] = 0;
-//                      goto err_exit;
-//                    }
-//
-//                    packet_data_cnt[ble_hd] = 0;
-//                    packet_head[ble_hd][0] = 0;
-//                    packet_head[ble_hd][1] = 0;
-//                    packet_head[ble_hd][2] = 0;
-//
-//                    if (tx_order_index_buy >= TX_ORDER_NUM) {
-//                      tx_order_index_buy = 0;
-//                    }
-//                    
-//                    i = i + 2;
-//                    continue;
-//                }
-//              }
-//            }
-//err_exit:
             break;
 
         case BLE_NUS_C_EVT_DISCONNECTED:
@@ -731,7 +566,6 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
     };
     
     if (find_mac_index < CENTRAL_LINK_COUNT) {
-
       if (find_peer_addr(&p_gap_evt->params.adv_report, &target_periph_addr)) {
           NRF_LOG_INFO("Address match send connect_request.\r\n");
           do_connect = true;
@@ -754,7 +588,7 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
                    p_adv_report->peer_addr.addr[3],
                    p_adv_report->peer_addr.addr[4],
                    p_adv_report->peer_addr.addr[5]);
-
+          cust_mac_addr[find_mac_index].conn_handle = p_gap_evt->conn_handle;
           cust_mac_addr[find_mac_index].connected = 1;
         }
 
@@ -777,7 +611,8 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
 static void on_ble_evt(const ble_evt_t * const p_ble_evt)
 {
     ret_code_t err_code;
-
+    uint32_t conn_handle;
+    uint8_t find_connhand;
     // For readability.
     const ble_gap_evt_t * const p_gap_evt = &p_ble_evt->evt.gap_evt;
 
@@ -815,6 +650,13 @@ static void on_ble_evt(const ble_evt_t * const p_ble_evt)
                          p_gap_evt->conn_handle,
                          p_gap_evt->params.disconnected.reason);
 
+            //if (find_connhand < CENTRAL_LINK_COUNT) {
+            //  conn_handle = cust_mac_addr[find_connhand].conn_handle;
+            //  if (conn_handle == p_gap_evt->conn_handle) {
+            //    cust_mac_addr[find_connhand].connected = 0;
+            //    break;
+            //  }
+            //}
             // Start scanning
             scan_start();
 
