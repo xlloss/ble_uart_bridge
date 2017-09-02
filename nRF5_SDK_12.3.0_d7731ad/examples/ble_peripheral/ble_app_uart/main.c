@@ -108,6 +108,17 @@ static uint16_t                         m_conn_handle = BLE_CONN_HANDLE_INVALID;
 
 static ble_uuid_t                       m_adv_uuids[] = {{BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}};  /**< Universally unique service identifier. */
 
+
+uint8_t mac_addr_cust[7][6] = {
+      {0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+      {0x11, 0x11, 0x22, 0x33, 0x44, 0x55},
+      {0x22, 0x11, 0x22, 0x33, 0x44, 0x55},
+      {0x33, 0x11, 0x22, 0x33, 0x44, 0x55},
+      {0x44, 0x11, 0x22, 0x33, 0x44, 0x55},
+      {0x55, 0x11, 0x22, 0x33, 0x44, 0x55},
+      {0x66, 0x11, 0x22, 0x33, 0x44, 0x55}};
+
+
 #define A_TEAM1 "$$$1aaaaaaaaaaaaaaa1"
 #define A_TEAM2 "1bbbbbbbbbbbbbbbbbb1"
 #define A_TEAM3 "1ccccccccccccccc1###"
@@ -128,22 +139,11 @@ static ble_uuid_t                       m_adv_uuids[] = {{BLE_UUID_NUS_SERVICE, 
 #define E_TEAM2 "5bbbbbbbbbbbbbbbbbb5"
 #define E_TEAM3 "5ccccccccccccccc5###"
 
+#define MAC_ADDR_ITEM 4
+#define TEST_TEAM1 E_TEAM1
+#define TEST_TEAM2 E_TEAM2
+#define TEST_TEAM3 E_TEAM3
 
-
-uint8_t mac_addr_cust[7][6] = {
-      {0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
-      {0x11, 0x11, 0x22, 0x33, 0x44, 0x55},
-      {0x22, 0x11, 0x22, 0x33, 0x44, 0x55},
-      {0x33, 0x11, 0x22, 0x33, 0x44, 0x55},
-      {0x44, 0x11, 0x22, 0x33, 0x44, 0x55},
-      {0x55, 0x11, 0x22, 0x33, 0x44, 0x55},
-      {0x66, 0x11, 0x22, 0x33, 0x44, 0x55}};
-
-
-#define MAC_ADDR_ITEM 0
-#define TEST_TEAM1 D_TEAM1
-#define TEST_TEAM2 D_TEAM2
-#define TEST_TEAM3 D_TEAM3
 
 
 static ble_gap_addr_t new_mac_addr;
@@ -151,11 +151,8 @@ static ble_gap_addr_t new_mac_addr;
 #define TIMER_BLE_TX_INTERVAL      APP_TIMER_TICKS(8000, APP_TIMER_PRESCALER)
 APP_TIMER_DEF(m_ble_tx_timer_id);
 
-//#if 0
-//  #define UART_TX_AUTO_SEND
-//#else
-  #define NUS_TX_AUTO_SEND
-//#endif
+#define NUS_TX_AUTO_SEND
+//#define UART_TX_AUTO_SEND
 
 #define AUTO_TEST_DATA "$$$0123456789abcdefghijk,./';\][-vcxzasdfghr@#$tgsdcvf###"
 #define STR_LEN 20
@@ -698,14 +695,12 @@ static void ble_tx_timeout_handler(void * p_context)
   uint8_t data_array2[20] = {TEST_TEAM2};
   uint8_t data_array3[20] = {TEST_TEAM3};
   uint8_t i = 0, j = 0;
-
-#ifdef NUS_TX_AUTO_SEND
 	uint32_t err_code;
-
 
 	UNUSED_PARAMETER(p_context);
 	NRF_LOG_INFO("\r\nble_tx_timeout_handler\r\n");
 
+#ifdef NUS_TX_AUTO_SEND
   if (count == 0) {
         err_code = ble_nus_string_send(&m_nus, &data_array1[0], str_len);
         if (err_code != NRF_ERROR_INVALID_STATE) {
@@ -730,11 +725,11 @@ static void ble_tx_timeout_handler(void * p_context)
       count = 0;
 #endif
 
-#ifdef UART_TX_AUTO_SEND
-  for (i = 0; i < str_len; i++) {
-		app_uart_put(data_array[i]);
-	}
-#endif
+//#ifdef UART_TX_AUTO_SEND
+//  for (i = 0; i < str_len; i++) {
+//		app_uart_put(data_array[i]);
+//	}
+//#endif
 
 }
 
@@ -778,27 +773,25 @@ int main(void)
 
     // Initialize.
     timers_init();
-    uart_init();
-    buttons_leds_init(&erase_bonds);
+//    uart_init();
+//    buttons_leds_init(&erase_bonds);
     ble_stack_init();
     gap_params_init();
     services_init();
     advertising_init();
     conn_params_init();
     NRF_LOG_INFO("\r\nUART Start!\r\n");
-    printf("\r\nUART Start!\r\n");
+//    printf("\r\nUART Start!\r\n");
     err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
     APP_ERROR_CHECK(err_code);
-#if 0
-	application_timers_start();
-#endif
+
     // Enter main loop.
     for (;;)
     {
-      if (NRF_LOG_PROCESS() == false)
-      {
-        power_manage();
-      }
+        if (NRF_LOG_PROCESS() == false)
+        {
+			power_manage();
+		}
     }
 }
 
