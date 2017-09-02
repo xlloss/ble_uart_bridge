@@ -121,7 +121,8 @@ static const char m_target_periph_name[] = "Nordic_UART";
 #define BUFFER_SZ 1024
 #define TEST_VERSION "Multilink BLE UART Example v.20\r\n"
 #define TX_ORDER_NUM 1024
-/* #define NEW_MAC_ADDRESS_TEST */
+
+#define NEW_MAC_ADDRESS_TEST
 
 unsigned char data_buf_cnt[CENTRAL_LINK_COUNT];
 int buf_index = 0;
@@ -184,17 +185,136 @@ static const ble_gap_conn_params_t m_connection_param =
 static ble_nus_c_t              m_ble_nus_c[TOTAL_LINK_COUNT];                    /**< Instance of NUS service. Must be passed to all NUS_C API calls. */
 static ble_db_discovery_t       m_ble_db_discovery[TOTAL_LINK_COUNT];             /**< Instance of database discovery module. Must be passed to all db_discovert API calls */
 
-#ifdef m_target_periph_addr
-static const ble_gap_addr_t m_target_periph_addr =
-{
-    /* Possible values for addr_type:
-       BLE_GAP_ADDR_TYPE_PUBLIC,
-       BLE_GAP_ADDR_TYPE_RANDOM_STATIC,
-       BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_RESOLVABLE,
-       BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_NON_RESOLVABLE. */
-    .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
-    .addr      = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+#ifdef NEW_MAC_ADDRESS_TEST
+//static const ble_gap_addr_t m_target_periph_addr =
+//{
+//    /* Possible values for addr_type:
+//       BLE_GAP_ADDR_TYPE_PUBLIC,
+//       BLE_GAP_ADDR_TYPE_RANDOM_STATIC,
+//       BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_RESOLVABLE,
+//       BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_NON_RESOLVABLE. */
+//    .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
+//    .addr      = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+//};
+
+struct customer_mac_addr {
+  const ble_gap_addr_t m_target_periph_addr;
+  uint8_t connected;
 };
+
+
+struct customer_mac_addr cust_mac_addr[CENTRAL_LINK_COUNT] = {
+  /* 0 iteam */
+  {
+    {
+      .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
+      .addr      = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+    },
+    .connected = 0,
+  },
+  
+  
+  /* 1 iteam */
+  {
+    {
+      .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
+      .addr      = {0x11, 0x11, 0x22, 0x33, 0x44, 0x55},
+    },
+    .connected = 0,
+  },
+  
+  /* 2 iteam */
+  {
+    {
+      .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
+      .addr      = {0x22, 0x11, 0x22, 0x33, 0x44, 0x55},     
+    },
+    .connected = 0,
+  },
+
+  /* 3 iteam */
+  {
+    {
+      .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
+      .addr      = {0x33, 0x11, 0x22, 0x33, 0x44, 0x55},     
+    },
+    .connected = 0,
+  },
+
+  /* 4 iteam */
+  {
+    {
+      .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
+      .addr      = {0x44, 0x11, 0x22, 0x33, 0x44, 0x55},     
+    },
+    .connected = 0,
+  },
+
+  /* 5 iteam */  
+  {
+    {
+      .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
+      .addr      = {0x55, 0x11, 0x22, 0x33, 0x44, 0x55},
+    },
+    .connected = 0,
+  },
+  
+  /* 6 iteam */
+  {
+    {
+      .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
+      .addr      = {0x66, 0x11, 0x22, 0x33, 0x44, 0x55},     
+    },
+    .connected = 0,
+  },
+  
+};
+
+//static const ble_gap_addr_t m_target_periph_addr[CENTRAL_LINK_COUNT] =
+//{
+//  /* 0 iteam */
+//  {
+//    .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
+//    .addr      = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+//  }
+//  
+//  /* 1 iteam */
+//  {
+//    .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
+//    .addr      = {0x11, 0x11, 0x22, 0x33, 0x44, 0x55}
+//  }
+//
+//  /* 2 iteam */
+//  {
+//    .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
+//    .addr      = {0x22, 0x11, 0x22, 0x33, 0x44, 0x55}
+//  }
+//
+//  /* 3 iteam */
+//  {
+//    .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
+//    .addr      = {0x33, 0x11, 0x22, 0x33, 0x44, 0x55}
+//  }
+//
+//  /* 4 iteam */
+//  {
+//    .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
+//    .addr      = {0x44, 0x11, 0x22, 0x33, 0x44, 0x55}
+//  }
+//
+//  /* 5 iteam */
+//  {
+//    .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
+//    .addr      = {0x55, 0x11, 0x22, 0x33, 0x44, 0x55}
+//  }
+//
+//  /* 6 iteam */
+//  {
+//    .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC,
+//    .addr      = {0x66, 0x11, 0x22, 0x33, 0x44, 0x55}
+//  }
+//  
+//};
 #endif
 
 /**@brief Function to handle asserts in the SoftDevice.
@@ -549,10 +669,11 @@ static bool find_peer_addr(const ble_gap_evt_adv_report_t *p_adv_report, const b
 static void on_adv_report(const ble_evt_t * const p_ble_evt)
 {
     uint32_t      err_code;
+    uint8_t       find_mac_index;
     uint8_array_t adv_data;
     uint8_array_t dev_name;
     bool          do_connect = false;
-
+    ble_gap_addr_t target_periph_addr;
     // For readibility.
     const ble_gap_evt_t * const p_gap_evt    = &p_ble_evt->evt.gap_evt;
     const ble_gap_addr_t  * const peer_addr  = &p_gap_evt->params.adv_report.peer_addr;
@@ -601,10 +722,22 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
     }
 
 #else
-    if (find_peer_addr(&p_gap_evt->params.adv_report, &m_target_periph_addr)) {
-        NRF_LOG_INFO("Address match send connect_request.\r\n");
-        do_connect = true;
+    
+    for (find_mac_index = 0; find_mac_index < CENTRAL_LINK_COUNT; find_mac_index++) {
+      if (cust_mac_addr[find_mac_index].connected == 0) {
+        target_periph_addr = cust_mac_addr[find_mac_index].m_target_periph_addr;
+        break;
+      }
+    };
+    
+    if (find_mac_index < CENTRAL_LINK_COUNT) {
+
+      if (find_peer_addr(&p_gap_evt->params.adv_report, &target_periph_addr)) {
+          NRF_LOG_INFO("Address match send connect_request.\r\n");
+          do_connect = true;
+      }
     }
+
 #endif
     if (do_connect)
     {
@@ -614,14 +747,16 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
         {
             NRF_LOG_ERROR("Connection Request Failed, reason %d\r\n", err_code);
         } else {
-                    NRF_LOG_INFO("Connecting to target %02x%02x%02x%02x%02x%02x\r\n",
-                             p_adv_report->peer_addr.addr[0],
-                             p_adv_report->peer_addr.addr[1],
-                             p_adv_report->peer_addr.addr[2],
-                             p_adv_report->peer_addr.addr[3],
-                             p_adv_report->peer_addr.addr[4],
-                             p_adv_report->peer_addr.addr[5]);
-				}
+          NRF_LOG_INFO("Connecting to target %02x%02x%02x%02x%02x%02x\r\n",
+                   p_adv_report->peer_addr.addr[0],
+                   p_adv_report->peer_addr.addr[1],
+                   p_adv_report->peer_addr.addr[2],
+                   p_adv_report->peer_addr.addr[3],
+                   p_adv_report->peer_addr.addr[4],
+                   p_adv_report->peer_addr.addr[5]);
+
+          cust_mac_addr[find_mac_index].connected = 1;
+        }
 
     }
 
@@ -859,7 +994,7 @@ static void power_manage(void)
 int my_ble_hd = 0;
 static void ble_process_buf_handler(void * p_context)
 {
-  int eat_i = 0, get_out = 0, i = 0;
+  int eat_i = 0, get_out = 0, get_in = 0, i = 0;
   unsigned char uart_tx_buffer, ble_hd;
   uint32_t err_code = NRF_SUCCESS;
   UNUSED_PARAMETER(p_context);
@@ -877,15 +1012,6 @@ static void ble_process_buf_handler(void * p_context)
     return;
   }
 
-
-//  err_code = app_fifo_get(&packet_data_tx_order_hd, &ble_hd);
-//  if (err_code != NRF_SUCCESS) {
-//    NRF_LOG_INFO ("packet_data_tx_order_hd FIFO get fail\r\n");
-//    goto exit;
-//  }
-
-  
-
   if (packet_data_cnt[my_ble_hd] < 3) {
     app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
     return;
@@ -900,17 +1026,21 @@ static void ble_process_buf_handler(void * p_context)
       break;
     }
 
+    if (uart_tx_buffer == '$')
+      get_in++;
+
     if (uart_tx_buffer == '#')
       get_out++;
-  
-    while (app_uart_put(uart_tx_buffer) != NRF_SUCCESS);
+    
+    if (get_in > 0 )
+      while (app_uart_put(uart_tx_buffer) != NRF_SUCCESS);
     
     if (get_out >= 3)
       break;
   };
   
   my_ble_hd++;
-exit:
+//exit:
   nrf_delay_ms(10);
   app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
 }
