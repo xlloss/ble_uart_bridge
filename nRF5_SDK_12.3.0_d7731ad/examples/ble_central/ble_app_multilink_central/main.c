@@ -146,13 +146,16 @@ struct tx_packet_order packet_order;
 uint8_t alloc_tx_buf[CENTRAL_LINK_COUNT][BUFFER_SZ] = {0};
 static uint32_t packet_data_cnt[CENTRAL_LINK_COUNT] = {0};
 uint8_t packet_data_tx_order[TX_ORDER_NUM] = {0};
+uint8_t server_cmd_packet_buf[1024] = {0};
 int tx_order_index_buy = 0;
 
 uint32_t reset_ble_rx_start = 0;
 uint32_t reset_ble_rx_stop = 0;
 uint32_t reset_ble_cont = 0;
+uint8_t my_ble_hd = 0;
 
 app_fifo_t packet_data_tx_order_hd;
+app_fifo_t server_cmd_packet;
 
 /** @brief Scan parameters requested for scanning and connection. */
 static const ble_gap_scan_params_t m_scan_params =
@@ -186,6 +189,8 @@ static ble_nus_c_t              m_ble_nus_c[TOTAL_LINK_COUNT];                  
 static ble_db_discovery_t       m_ble_db_discovery[TOTAL_LINK_COUNT];             /**< Instance of database discovery module. Must be passed to all db_discovert API calls */
 
 #ifdef NEW_MAC_ADDRESS_TEST
+static bool find_peer_addr(const ble_gap_evt_adv_report_t *p_adv_report, const ble_gap_addr_t * p_addr);
+
 //static const ble_gap_addr_t m_target_periph_addr =
 //{
 //    /* Possible values for addr_type:
@@ -201,6 +206,7 @@ struct customer_mac_addr {
   const ble_gap_addr_t m_target_periph_addr;
   uint8_t connected;
   int conn_handle;
+  uint32_t nusc_handle;
 };
 
 
@@ -212,7 +218,8 @@ struct customer_mac_addr cust_mac_addr[CENTRAL_LINK_COUNT] = {
       .addr      = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
     },
     .connected = 0,
-    .conn_handle = -1,
+    .conn_handle = 0xFF,
+    .nusc_handle = 0xFF,
   },
   
   
@@ -223,7 +230,8 @@ struct customer_mac_addr cust_mac_addr[CENTRAL_LINK_COUNT] = {
       .addr      = {0x11, 0x11, 0x22, 0x33, 0x44, 0x55},
     },
     .connected = 0,
-    .conn_handle = -1,
+    .conn_handle = 0xFF,
+    .nusc_handle = 0xFF,
   },
   
   /* 2 iteam */
@@ -233,7 +241,8 @@ struct customer_mac_addr cust_mac_addr[CENTRAL_LINK_COUNT] = {
       .addr      = {0x22, 0x11, 0x22, 0x33, 0x44, 0x55},     
     },
     .connected = 0,
-    .conn_handle = -1,
+    .conn_handle = 0xFF,
+    .nusc_handle = 0xFF,
   },
 
   /* 3 iteam */
@@ -243,7 +252,8 @@ struct customer_mac_addr cust_mac_addr[CENTRAL_LINK_COUNT] = {
       .addr      = {0x33, 0x11, 0x22, 0x33, 0x44, 0x55},     
     },
     .connected = 0,
-    .conn_handle = -1,
+    .conn_handle = 0xFF,
+    .nusc_handle = 0xFF,
   },
 
   /* 4 iteam */
@@ -253,7 +263,8 @@ struct customer_mac_addr cust_mac_addr[CENTRAL_LINK_COUNT] = {
       .addr      = {0x44, 0x11, 0x22, 0x33, 0x44, 0x55},     
     },
     .connected = 0,
-    .conn_handle = -1,
+    .conn_handle = 0xFF,
+    .nusc_handle = 0xFF,
   },
 
   /* 5 iteam */  
@@ -263,7 +274,8 @@ struct customer_mac_addr cust_mac_addr[CENTRAL_LINK_COUNT] = {
       .addr      = {0x55, 0x11, 0x22, 0x33, 0x44, 0x55},
     },
     .connected = 0,
-    .conn_handle = -1,
+    .conn_handle = 0xFF,
+    .nusc_handle = 0xFF,
   },
   
   /* 6 iteam */
@@ -273,7 +285,8 @@ struct customer_mac_addr cust_mac_addr[CENTRAL_LINK_COUNT] = {
       .addr      = {0x66, 0x11, 0x22, 0x33, 0x44, 0x55},     
     },
     .connected = 0,
-    .conn_handle = -1,
+    .conn_handle = 0xFF,
+    .nusc_handle = 0xFF,
   },
   
 };
@@ -363,8 +376,7 @@ static void scan_start(void)
 static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt_t * p_ble_nus_evt)
 {
     uint32_t err_code;
-    static uint8_t packet_head[CENTRAL_LINK_COUNT][3], ble_hd;
-    static uint8_t packet_end[CENTRAL_LINK_COUNT][3];
+    static uint8_t ble_hd;
     uint32_t conn_handle;
     uint8_t find_connhand;
 
@@ -422,30 +434,19 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 /**@snippet [Handling the data received over UART] */
 void uart_event_handle(app_uart_evt_t * p_event)
 {
-    /* static uint8_t data_array[BLE_NUS_MAX_DATA_LEN]; */
-    /* static uint8_t index = 0; */
-    /* uint32_t       err_code; */
+    static uint8_t data_buf;
+    uint32_t       err_code;
 
     switch (p_event->evt_type)
     {
         case APP_UART_DATA_READY:
-          /*
-						NRF_LOG_INFO("\r\nAPP_UART_DATA_READY\r\n");
-            UNUSED_VARIABLE(app_uart_get(&data_array[index]));
-            index++;
-
-            if ((data_array[index - 1] == '\n') || (index >= (BLE_NUS_MAX_DATA_LEN)))
-            {
-                err_code = ble_nus_string_send(&m_nus, data_array, index);
-                if (err_code != NRF_ERROR_INVALID_STATE)
-                {
-                    APP_ERROR_CHECK(err_code);
-                }
-
-                index = 0;
-            }
-          */
-            break;
+          UNUSED_VARIABLE(app_uart_get(&data_buf));
+          err_code = app_fifo_put(&server_cmd_packet, data_buf);
+          if (err_code != NRF_SUCCESS) {
+            NRF_LOG_INFO ("server_cmd_packet fifo put fail\r\n");
+          }
+          
+          break;
 
         case APP_UART_COMMUNICATION_ERROR:
             APP_ERROR_HANDLER(p_event->data.error_communication);
@@ -521,8 +522,8 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
 {
     uint32_t      err_code;
     uint8_t       find_mac_index;
-    uint8_array_t adv_data;
-    uint8_array_t dev_name;
+    /* uint8_array_t adv_data; */
+    /* uint8_array_t dev_name; */
     bool          do_connect = false;
     ble_gap_addr_t target_periph_addr;
     // For readibility.
@@ -580,16 +581,13 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
         //break;
       }
     
-    
       NRF_LOG_INFO("find_mac_index %d\r\n", find_mac_index);
 
-      //if (find_mac_index < CENTRAL_LINK_COUNT) {
-        if (find_peer_addr(&p_gap_evt->params.adv_report, &target_periph_addr)) {
-            NRF_LOG_INFO("Address match send connect_request.\r\n");
-            do_connect = true;
-            break;
-        }
-      //}
+      if (find_peer_addr(&p_gap_evt->params.adv_report, &target_periph_addr)) {
+          NRF_LOG_INFO("Address match send connect_request.\r\n");
+          do_connect = true;
+          break;
+      }
     }
 
 #endif
@@ -608,7 +606,6 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
                    p_adv_report->peer_addr.addr[3],
                    p_adv_report->peer_addr.addr[4],
                    p_adv_report->peer_addr.addr[5]);
-          cust_mac_addr[find_mac_index].conn_handle = p_gap_evt->conn_handle;
           cust_mac_addr[find_mac_index].connected = 1;
         }
 
@@ -630,9 +627,11 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
  */
 static void on_ble_evt(const ble_evt_t * const p_ble_evt)
 {
+    int i = 0;
     ret_code_t err_code;
     // For readability.
     const ble_gap_evt_t * const p_gap_evt = &p_ble_evt->evt.gap_evt;
+    const ble_gap_evt_adv_report_t *p_adv_report = &p_gap_evt->params.adv_report;
 
     switch (p_ble_evt->header.evt_id)
     {
@@ -655,7 +654,19 @@ static void on_ble_evt(const ble_evt_t * const p_ble_evt)
             {
                 APP_ERROR_CHECK(err_code);
             }
-
+            
+            for (i = 0; i < CENTRAL_LINK_COUNT; i++) {
+              if (memcmp(cust_mac_addr[i].m_target_periph_addr.addr, p_adv_report->peer_addr.addr, 6) == 0 ) {
+                //NRF_LOG_INFO ("cust_mac_addr[%d].m_target_periph_addr.addr[0] 0x%x\r\n", i, cust_mac_addr[i].m_target_periph_addr.addr[0]);
+                //NRF_LOG_INFO ("cust_mac_addr[%d].m_target_periph_addr.addr[1] 0x%x\r\n", i, cust_mac_addr[i].m_target_periph_addr.addr[1]);
+                //NRF_LOG_INFO ("cust_mac_addr[%d].m_target_periph_addr.addr[2] 0x%x\r\n", i, cust_mac_addr[i].m_target_periph_addr.addr[2]);
+                //NRF_LOG_INFO ("cust_mac_addr[%d].m_target_periph_addr.addr[3] 0x%x\r\n", i, cust_mac_addr[i].m_target_periph_addr.addr[3]);
+                //NRF_LOG_INFO ("cust_mac_addr[%d].m_target_periph_addr.addr[4] 0x%x\r\n", i, cust_mac_addr[i].m_target_periph_addr.addr[4]);
+                //NRF_LOG_INFO ("cust_mac_addr[%d].m_target_periph_addr.addr[5] 0x%x\r\n", i, cust_mac_addr[i].m_target_periph_addr.addr[5]);
+                cust_mac_addr[i].conn_handle = p_gap_evt->conn_handle;
+                NRF_LOG_INFO ("p_gap_evt->conn_handle %d\r\n", p_gap_evt->conn_handle);
+              }
+            }
             scan_start();
 
         } break; // BLE_GAP_EVT_CONNECTED
@@ -844,17 +855,51 @@ static void power_manage(void)
     APP_ERROR_CHECK(err_code);
 }
 
-///int my_ble_hd = 0;
-uint8_t my_ble_hd = 0;
+
 static void ble_process_buf_handler(void * p_context)
 {
-  int eat_i = 0, get_out = 0, get_in = 0, i = 0;
-  unsigned char uart_tx_buffer, ble_hd;
+  int get_out = 0, get_in = 0;
+  unsigned char uart_tx_buffer;
   uint32_t err_code = NRF_SUCCESS;
   UNUSED_PARAMETER(p_context);
-  
+  uint8_t cmd_data_buf = 0, cmd_data_sned_buf[20] = {0}, index = 0;
+  uint8_t mac_addr_target[6] = {0}, cust_mac_addr_target[6], server_cmd_head_cnt = 0, server_cmd_packet_cnt = 0;
+  uint8_t target_mac_index = 0, find_mac_index, cmp_result;
 //  NRF_LOG_INFO ("ble_process_buf_handler\r\n");
   app_timer_stop(m_ble_tx_timer_id);
+
+  for (index = 0; index < 20; index++) {
+    err_code = app_fifo_get(&server_cmd_packet, &cmd_data_buf);
+    if (err_code != NRF_SUCCESS) {
+      NRF_LOG_INFO ("server_cmd_packet fifo put fail\r\n");
+      break;
+    }
+    cmd_data_sned_buf[index] = cmd_data_buf;
+    //NRF_LOG_INFO ("cmd_data_buf 0x%x\r\n", cmd_data_buf);
+    if (cmd_data_buf == '$')
+      server_cmd_head_cnt = server_cmd_head_cnt + 1;
+    
+    server_cmd_packet_cnt = server_cmd_packet_cnt + 1;
+    if (server_cmd_head_cnt == 3 && server_cmd_packet_cnt >= 4 && target_mac_index < 6) {
+      //NRF_LOG_INFO ("cmd_data_buf 0x%x\r\n", cmd_data_buf);
+      mac_addr_target[target_mac_index] = cmd_data_buf;
+      target_mac_index = target_mac_index + 1;
+    }
+  };
+  
+  if (target_mac_index >= 6) {
+    for (find_mac_index = 0; find_mac_index < CENTRAL_LINK_COUNT; find_mac_index++) {
+      memcpy (cust_mac_addr_target, cust_mac_addr[find_mac_index].m_target_periph_addr.addr, sizeof (uint8_t) * 6);
+      cmp_result = memcmp (mac_addr_target, cust_mac_addr_target, sizeof (uint8_t) * 6);
+      NRF_LOG_INFO ("cmp_result %d\r\n", cmp_result);
+      if (cmp_result == 0) {
+        ble_nus_c_string_send(&m_ble_nus_c[cust_mac_addr[find_mac_index].conn_handle], cmd_data_sned_buf, index);
+        break;
+      }
+    }
+  }
+  target_mac_index = 0;
+
 
   if (my_ble_hd >= 7)
     my_ble_hd = 0;
@@ -890,14 +935,11 @@ static void ble_process_buf_handler(void * p_context)
     if (get_in > 0 )
       while (app_uart_put(uart_tx_buffer) != NRF_SUCCESS);
     
-    if (get_out >= 3) {
-//      packet_data_cnt[my_ble_hd] = 0;
+    if (get_out >= 3)
       break;
-    }
   };
   
   my_ble_hd++;
-//exit:
   nrf_delay_ms(10);
   app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
 }
@@ -959,6 +1001,7 @@ int main(void)
     //}
     
     app_fifo_init(&packet_data_tx_order_hd, packet_data_tx_order, TX_ORDER_NUM);
+    app_fifo_init(&server_cmd_packet, server_cmd_packet_buf, 1024);
     
     // Start scanning for peripherals and initiate connection to devices which
     // advertise.
