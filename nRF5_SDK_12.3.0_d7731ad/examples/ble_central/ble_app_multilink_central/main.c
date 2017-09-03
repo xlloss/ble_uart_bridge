@@ -365,6 +365,8 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
     uint32_t err_code;
     static uint8_t packet_head[CENTRAL_LINK_COUNT][3], ble_hd;
     static uint8_t packet_end[CENTRAL_LINK_COUNT][3];
+    uint32_t conn_handle;
+    uint8_t find_connhand;
 
     switch (p_ble_nus_evt->evt_type)
     {
@@ -398,6 +400,19 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 
         case BLE_NUS_C_EVT_DISCONNECTED:
             NRF_LOG_INFO("Disconnected\r\n");
+            for (find_connhand = 0; find_connhand < CENTRAL_LINK_COUNT; find_connhand++) {
+              conn_handle = cust_mac_addr[find_connhand].conn_handle;
+              if (conn_handle == p_ble_nus_c->conn_handle) {
+                NRF_LOG_INFO ("MAC ADDR 0x%x\r\n", cust_mac_addr[find_connhand].m_target_periph_addr.addr[0]);
+                NRF_LOG_INFO ("MAC ADDR 0x%x\r\n", cust_mac_addr[find_connhand].m_target_periph_addr.addr[1]);
+                NRF_LOG_INFO ("MAC ADDR 0x%x\r\n", cust_mac_addr[find_connhand].m_target_periph_addr.addr[2]);
+                NRF_LOG_INFO ("MAC ADDR 0x%x\r\n", cust_mac_addr[find_connhand].m_target_periph_addr.addr[3]);
+                NRF_LOG_INFO ("MAC ADDR 0x%x\r\n", cust_mac_addr[find_connhand].m_target_periph_addr.addr[4]);
+                NRF_LOG_INFO ("MAC ADDR 0x%x\r\n", cust_mac_addr[find_connhand].m_target_periph_addr.addr[5]);
+                cust_mac_addr[find_connhand].connected = 0;
+                break;
+              }
+            }
             scan_start();
             break;
     }
@@ -616,8 +631,6 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
 static void on_ble_evt(const ble_evt_t * const p_ble_evt)
 {
     ret_code_t err_code;
-    uint32_t conn_handle;
-    uint8_t find_connhand;
     // For readability.
     const ble_gap_evt_t * const p_gap_evt = &p_ble_evt->evt.gap_evt;
 
@@ -655,13 +668,6 @@ static void on_ble_evt(const ble_evt_t * const p_ble_evt)
                          p_gap_evt->conn_handle,
                          p_gap_evt->params.disconnected.reason);
 
-            //if (find_connhand < CENTRAL_LINK_COUNT) {
-            //  conn_handle = cust_mac_addr[find_connhand].conn_handle;
-            //  if (conn_handle == p_gap_evt->conn_handle) {
-            //    cust_mac_addr[find_connhand].connected = 0;
-            //    break;
-            //  }
-            //}
             // Start scanning
             scan_start();
 
@@ -850,19 +856,19 @@ static void ble_process_buf_handler(void * p_context)
 //  NRF_LOG_INFO ("ble_process_buf_handler\r\n");
   app_timer_stop(m_ble_tx_timer_id);
 
-//  if (my_ble_hd >= 7)
-//    my_ble_hd = 0;
+  if (my_ble_hd >= 7)
+    my_ble_hd = 0;
 
-  err_code = app_fifo_get(&packet_data_tx_order_hd, &my_ble_hd);
-  if (err_code != NRF_SUCCESS) {
-    app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
-    return;
-  }
+//  err_code = app_fifo_get(&packet_data_tx_order_hd, &my_ble_hd);
+//  if (err_code != NRF_SUCCESS) {
+//    app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
+//    return;
+//  }
   
   NRF_LOG_INFO ("ble_process_buf_handler my_ble_hd %d %d\r\n", my_ble_hd, packet_data_cnt[my_ble_hd]);
   if (packet_data_cnt[my_ble_hd] < 3) {
     app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
-//    my_ble_hd++;
+    my_ble_hd++;
     return;
   }
 
@@ -890,7 +896,7 @@ static void ble_process_buf_handler(void * p_context)
     }
   };
   
-//  my_ble_hd++;
+  my_ble_hd++;
 //exit:
   nrf_delay_ms(10);
   app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
