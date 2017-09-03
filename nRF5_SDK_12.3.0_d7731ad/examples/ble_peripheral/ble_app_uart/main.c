@@ -69,6 +69,7 @@
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_temp.h"
+#include "app_fifo.h"
 
 #define IS_SRVC_CHANGED_CHARACT_PRESENT 0                                           /**< Include the service_changed characteristic. If not enabled, the server's database cannot be changed for the lifetime of the device. */
 
@@ -151,11 +152,16 @@ static ble_gap_addr_t new_mac_addr;
 #define TIMER_BLE_TX_INTERVAL      APP_TIMER_TICKS(8000, APP_TIMER_PRESCALER)
 APP_TIMER_DEF(m_ble_tx_timer_id);
 
-#define NUS_TX_AUTO_SEND
+//#define NUS_TX_AUTO_SEND
 //#define UART_TX_AUTO_SEND
 
 #define AUTO_TEST_DATA "$$$0123456789abcdefghijk,./';\][-vcxzasdfghr@#$tgsdcvf###"
 #define STR_LEN 20
+
+#define DATA_BUFFER_SZ 1024
+
+app_fifo_t packet_data_fifo;
+uint8_t packet_data_buffer[DATA_BUFFER_SZ] = {0};
 
 static void application_timers_start(void);
 
@@ -773,7 +779,7 @@ int main(void)
 
     // Initialize.
     timers_init();
-//    uart_init();
+    uart_init();
 //    buttons_leds_init(&erase_bonds);
     ble_stack_init();
     gap_params_init();
@@ -781,6 +787,9 @@ int main(void)
     advertising_init();
     conn_params_init();
     NRF_LOG_INFO("\r\nUART Start!\r\n");
+    
+    app_fifo_init(&packet_data_fifo, packet_data_buffer, DATA_BUFFER_SZ);
+
 //    printf("\r\nUART Start!\r\n");
     err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
     APP_ERROR_CHECK(err_code);

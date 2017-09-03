@@ -380,6 +380,7 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
         case BLE_NUS_C_EVT_NUS_RX_EVT:
             ble_hd = p_ble_nus_c->conn_handle;
             for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++) {
+              NRF_LOG_INFO ("p_ble_nus_evt->p_data[%d] 0x%c\r\n",i, p_ble_nus_evt->p_data[i]);
               err_code = app_fifo_put(&tx_fifo[ble_hd].tx_fifo_handle, p_ble_nus_evt->p_data[i]);
               if (err_code != NRF_SUCCESS) {
                 NRF_LOG_INFO ("tx_fifo[%d].tx_fifo_handle app_fifo_put fail: ble_hd %d\r\n", ble_hd, ble_hd);
@@ -561,15 +562,19 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
     for (find_mac_index = 0; find_mac_index < CENTRAL_LINK_COUNT; find_mac_index++) {
       if (cust_mac_addr[find_mac_index].connected == 0) {
         target_periph_addr = cust_mac_addr[find_mac_index].m_target_periph_addr;
-        break;
+        //break;
       }
-    };
     
-    if (find_mac_index < CENTRAL_LINK_COUNT) {
-      if (find_peer_addr(&p_gap_evt->params.adv_report, &target_periph_addr)) {
-          NRF_LOG_INFO("Address match send connect_request.\r\n");
-          do_connect = true;
-      }
+    
+      NRF_LOG_INFO("find_mac_index %d\r\n", find_mac_index);
+
+      //if (find_mac_index < CENTRAL_LINK_COUNT) {
+        if (find_peer_addr(&p_gap_evt->params.adv_report, &target_periph_addr)) {
+            NRF_LOG_INFO("Address match send connect_request.\r\n");
+            do_connect = true;
+            break;
+        }
+      //}
     }
 
 #endif
@@ -833,7 +838,8 @@ static void power_manage(void)
     APP_ERROR_CHECK(err_code);
 }
 
-int my_ble_hd = 0;
+///int my_ble_hd = 0;
+uint8_t my_ble_hd = 0;
 static void ble_process_buf_handler(void * p_context)
 {
   int eat_i = 0, get_out = 0, get_in = 0, i = 0;
@@ -841,26 +847,27 @@ static void ble_process_buf_handler(void * p_context)
   uint32_t err_code = NRF_SUCCESS;
   UNUSED_PARAMETER(p_context);
   
-  //NRF_LOG_INFO ("ble_process_buf_handler\r\n");
+//  NRF_LOG_INFO ("ble_process_buf_handler\r\n");
   app_timer_stop(m_ble_tx_timer_id);
 
-  if (my_ble_hd >= 7)
-    my_ble_hd = 0;
+//  if (my_ble_hd >= 7)
+//    my_ble_hd = 0;
+
+  err_code = app_fifo_get(&packet_data_tx_order_hd, &my_ble_hd);
+  if (err_code != NRF_SUCCESS) {
+    app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
+    return;
+  }
   
   NRF_LOG_INFO ("ble_process_buf_handler my_ble_hd %d %d\r\n", my_ble_hd, packet_data_cnt[my_ble_hd]);
   if (packet_data_cnt[my_ble_hd] < 3) {
     app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
-    my_ble_hd++;
-    return;
-  }
-
-  if (packet_data_cnt[my_ble_hd] < 3) {
-    app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
+//    my_ble_hd++;
     return;
   }
 
   packet_data_cnt[my_ble_hd] = 0;
-
+  
   while (1) {
     NRF_LOG_INFO ("while loop\r\n");
     err_code = app_fifo_get(&tx_fifo[my_ble_hd].tx_fifo_handle, &uart_tx_buffer);
@@ -877,11 +884,13 @@ static void ble_process_buf_handler(void * p_context)
     if (get_in > 0 )
       while (app_uart_put(uart_tx_buffer) != NRF_SUCCESS);
     
-    if (get_out >= 3)
+    if (get_out >= 3) {
+//      packet_data_cnt[my_ble_hd] = 0;
       break;
+    }
   };
   
-  my_ble_hd++;
+//  my_ble_hd++;
 //exit:
   nrf_delay_ms(10);
   app_timer_start(m_ble_tx_timer_id, TIMER_BLE_TX_INTERVAL, NULL);
